@@ -1,0 +1,573 @@
+/* ---------- 1. CONFIGURACIÓN BASE ---------- */
+:root {
+  --space-black: #02040a;
+  --earth-blue: #58a6ff;
+  --button-cyan: #3cefff;
+  --text-white: #e6edf3;
+  --glass-bg: rgba(8, 12, 24, 0.7);
+  --glass-border: rgba(88, 166, 255, 0.2);
+  --font-main: 'Outfit', sans-serif;
+  --font-header: 'Orbitron', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Evitamos scroll global para efecto dashboard */
+}
+
+body {
+  background-color: var(--space-black);
+  background-image: radial-gradient(circle at center, #1a2a44 0%, #02040a 100%), url('Image/Estrellas.png');
+  background-size: cover;
+  background-blend-mode: overlay;
+  color: var(--text-white);
+  font-family: var(--font-main);
+}
+
+/* ---------- 2. ESTRUCTURA PRINCIPAL (DASHBOARD) ---------- */
+#contenido-principal {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  background: rgba(2, 4, 10, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 40px;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo-area img {
+  width: 50px;
+  height: 50px;
+  filter: drop-shadow(0 0 10px var(--earth-blue));
+}
+
+#main-title {
+  font-family: var(--font-header);
+  font-size: 2rem;
+  margin: 0;
+  letter-spacing: 4px;
+  background: linear-gradient(90deg, #fff, var(--earth-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.accent {
+  color: var(--button-cyan);
+  -webkit-text-fill-color: var(--button-cyan);
+}
+
+nav ul {
+  display: flex;
+  gap: 30px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+nav ul li a {
+  text-decoration: none;
+  font-family: var(--font-header);
+  font-size: 0.8rem;
+  color: var(--text-white);
+  transition: 0.3s;
+}
+
+nav ul li a:hover {
+  color: var(--button-cyan);
+  text-shadow: 0 0 10px var(--button-cyan);
+}
+
+/* ---------- 3. LAYOUT DASHBOARD ---------- */
+.dashboard {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr 500px;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.dashboard-left,
+.dashboard-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-center {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  /* Dejamos que Three.js respire pero no estorbe */
+}
+
+#modelo-container {
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  animation: floatAstronaut 6s ease-in-out infinite;
+}
+
+/* ---------- 4. COMPONENTES (GLASSMORPHISM) ---------- */
+.decorative-asset {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.decorative-asset img {
+  max-width: 120px;
+  animation: floatIcon 4s ease-in-out infinite;
+}
+
+.asset-info {
+  text-align: center;
+}
+
+.asset-info .label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--earth-blue);
+  letter-spacing: 2px;
+  margin-bottom: 5px;
+}
+
+.asset-info .value {
+  font-family: var(--font-header);
+  font-size: 0.9rem;
+  color: var(--button-cyan);
+}
+
+/* ---------- 5. CHAT CONTAINER DASHBOARD ---------- */
+#chat-container {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 65vh;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(88, 166, 255, 0.1);
+  position: relative;
+}
+
+.chat-header {
+  padding: 15px 20px;
+  background: rgba(88, 166, 255, 0.1);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  background: #00ff00;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00ff00;
+  animation: pulse 2s infinite;
+}
+
+.chat-header h2 {
+  font-family: var(--font-header);
+  font-size: 0.9rem;
+  margin: 0;
+  flex: 1;
+  letter-spacing: 1px;
+}
+
+.encryption-tag {
+  font-size: 0.6rem;
+  color: var(--earth-blue);
+  border: 1px solid var(--earth-blue);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+#chat-history {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.system-message {
+  font-size: 0.75rem;
+  color: var(--button-cyan);
+  text-align: center;
+  margin: 10px 0;
+  font-family: var(--font-header);
+  opacity: 0.7;
+}
+
+#chat-form {
+  padding: 20px;
+  background: rgba(2, 4, 10, 0.4);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  gap: 12px;
+}
+
+#chat-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 12px 15px;
+  color: #fff;
+  font-family: var(--font-main);
+  outline: none;
+  transition: 0.3s;
+}
+
+#chat-input:focus {
+  border-color: var(--button-cyan);
+  box-shadow: 0 0 10px rgba(60, 239, 255, 0.2);
+}
+
+#mic-btn,
+#chat-form button[type="submit"] {
+  background: var(--button-cyan);
+  color: var(--space-black);
+  border: none;
+  border-radius: 8px;
+  padding: 0 15px;
+  font-family: var(--font-header);
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+#mic-btn {
+  font-size: 1.2rem;
+  width: 50px;
+}
+
+#chat-form button[type="submit"]:hover,
+#mic-btn:hover {
+  background: #fff;
+  box-shadow: 0 0 20px var(--button-cyan);
+}
+
+/* ---------- 6. ESTILO DE MENSAJES ---------- */
+.mensaje {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  position: relative;
+  animation: slideIn 0.3s ease-out;
+}
+
+.mensaje-usuario {
+  align-self: flex-end;
+  background: var(--earth-blue);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+
+.mensaje-astronauta {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
+  border-bottom-left-radius: 2px;
+}
+
+.msg-sender {
+  display: block;
+  font-family: var(--font-header);
+  font-size: 0.65rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+}
+
+.mensaje-usuario .msg-sender {
+  color: var(--space-black);
+  opacity: 0.8;
+}
+
+.mensaje-astronauta .msg-sender {
+  color: var(--button-cyan);
+}
+
+.msg-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ---------- 7. MODAL TERMINAL STYLE ---------- */
+.modal-instrucciones {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.modal-contenido {
+  background: #080c18;
+  border: 1px solid var(--button-cyan);
+  padding: 40px;
+  border-radius: 20px;
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 50px rgba(60, 239, 255, 0.2);
+}
+
+.highlight {
+  color: var(--button-cyan);
+  font-family: var(--font-header);
+}
+
+.terminal-box {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.modal-contenido button {
+  background: var(--button-cyan);
+  color: #000;
+  padding: 15px 40px;
+  border: none;
+  border-radius: 30px;
+  font-family: var(--font-header);
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+  letter-spacing: 2px;
+}
+
+.modal-contenido button:hover {
+  background: #fff;
+  box-shadow: 0 0 30px var(--button-cyan);
+}
+
+/* ---------- 8. ANIMACIONES & SCROLL ---------- */
+@keyframes floatIcon {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+}
+
+@keyframes floatAstronaut {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+#chat-history::-webkit-scrollbar {
+  width: 4px;
+}
+
+#chat-history::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#chat-history::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 10px;
+}
+
+#spinner {
+  text-align: center;
+  padding: 10px;
+  font-size: 0.8rem;
+  color: var(--button-cyan);
+}
+
+.hidden {
+  display: none;
+}
+
+/* ---------- 10. ESTILOS DE NAVEGACIÓN Y FOOTER ---------- */
+.nav-biometria {
+  color: #ffea00 !important;
+  font-weight: bold;
+  border: 1px solid #ffea00;
+  padding: 2px 12px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+}
+
+.nav-biometria:hover {
+  background: #ffea00;
+  color: #000 !important;
+  box-shadow: 0 0 20px rgba(255, 234, 0, 0.4);
+}
+
+.nav-earth {
+  color: #4cd137 !important;
+  font-weight: bold;
+  border: 1px solid #4cd137;
+  padding: 2px 12px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+}
+
+.nav-earth:hover {
+  background: #4cd137;
+  color: #000 !important;
+  box-shadow: 0 0 20px rgba(76, 209, 55, 0.4);
+}
+
+.nav-doc {
+  color: var(--earth-blue) !important;
+  font-weight: bold;
+  border: 1px solid var(--earth-blue);
+  padding: 2px 12px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+}
+
+.nav-doc:hover {
+  background: var(--earth-blue);
+  color: #000 !important;
+  box-shadow: 0 0 20px rgba(88, 166, 255, 0.4);
+}
+
+footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  min-height: 40px;
+  background: rgba(2, 4, 10, 0.9);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--glass-border);
+  color: var(--text-white);
+  padding: 12px 0;
+  text-align: center;
+  font-size: 0.8rem;
+  z-index: 9000;
+  font-family: var(--font-main);
+  letter-spacing: 1px;
+}
+
+footer a {
+  color: var(--button-cyan);
+  text-decoration: none;
+}
+
+/* ---------- 9. RESPONSIVE ---------- */
+@media (max-width: 1200px) {
+  .dashboard {
+    grid-template-columns: 1fr 1.5fr;
+  }
+
+  .dashboard-left {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .dashboard-center {
+    height: 300px;
+  }
+
+  #chat-container {
+    height: 500px;
+  }
+}

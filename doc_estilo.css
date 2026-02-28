@@ -1,0 +1,225 @@
+/* doc_estilo.css */
+
+/* 1. Estructura General */
+body {
+    background: #050505;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    /* Evita scroll en toda la página */
+    margin: 0;
+}
+
+.dashboard {
+    display: grid;
+    /* Configuración de 4 columnas: Índice, Monitor, Texto, Radio */
+    grid-template-columns: 240px 400px 1fr 320px;
+    height: 100vh;
+    gap: 15px;
+    padding: 20px;
+    box-sizing: border-box;
+    background-image: radial-gradient(circle at center, #0a0a1a 0%, #050505 100%);
+}
+
+/* 2. Paneles Comunes */
+.indice-navegacion,
+.monitor,
+.lectura-espacial,
+.monitor-comunicaciones {
+    max-height: calc(100vh - 120px);
+    /* Altura fija para todos */
+    box-sizing: border-box;
+}
+
+/* 3. Panel Izquierdo: Índice */
+.indice-navegacion {
+    background: rgba(10, 10, 20, 0.8);
+    border: 1px solid #208cff;
+    border-radius: 15px;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.home-link:hover {
+    background: rgba(255, 234, 0, 0.15) !important;
+    border-color: #ffea00 !important;
+    transform: translateX(5px);
+    box-shadow: 0 0 15px rgba(255, 234, 0, 0.2);
+}
+
+.btn-destino {
+    background: #111;
+    color: #aaa;
+    border: 1px solid #333;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.3s;
+    font-size: 0.85rem;
+}
+
+.btn-destino:hover {
+    background: #1a1a1a;
+    border-color: #208cff;
+    color: white;
+    transform: translateX(5px);
+}
+
+.btn-destino.activo {
+    background: #208cff;
+    color: white;
+    box-shadow: 0 0 15px rgba(32, 140, 255, 0.4);
+}
+
+/* 4. Panel Central: Monitor */
+.monitor {
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #208cff;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(32, 140, 255, 0.2);
+    padding: 20px;
+}
+
+#planeta-gif {
+    max-width: 100%;
+    max-height: 80%;
+    filter: drop-shadow(0 0 15px #208cff);
+}
+
+/* 5. Panel de Texto (Karaoke) */
+.lectura-espacial {
+    background: rgba(10, 10, 20, 0.9);
+    border-radius: 15px;
+    padding: 40px;
+    overflow-y: auto;
+    line-height: 1.8;
+    border: 1px solid #333;
+    scroll-behavior: smooth;
+}
+
+.palabra {
+    font-size: 1.8rem;
+    color: #333;
+    transition: all 0.2s;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.highlight {
+    color: #fff;
+    text-shadow: 0 0 10px #fff, 0 0 20px #208cff;
+    transform: scale(1.1);
+    font-weight: bold;
+}
+
+/* 6. Panel Derecho: Radio de Misión (Chat) */
+.monitor-comunicaciones {
+    background: rgba(0, 20, 40, 0.9);
+    border: 1px solid #00f2ff;
+    border-radius: 15px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    /* IMPORTANTE: No permite que el panel crezca */
+}
+
+.chat-display {
+    flex-grow: 1;
+    background: #000;
+    color: #00f2ff;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    overflow-y: auto;
+    /* IMPORTANTE: El scroll ocurre aquí adentro */
+    border: 1px inset #00f2ff;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.input-grupo {
+    display: flex;
+    gap: 8px;
+    padding-top: 5px;
+}
+
+.input-grupo input {
+    flex-grow: 1;
+    background: #111;
+    color: #00f2ff;
+    border: 1px solid #00f2ff;
+    border-radius: 5px;
+    padding: 10px;
+    outline: none;
+}
+
+.input-grupo button {
+    background: #00f2ff;
+    color: #000;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.input-grupo button:hover {
+    background: #fff;
+    box-shadow: 0 0 10px #00f2ff;
+}
+
+/* 7. Controles de Audio (Fijos Abajo) */
+.controles {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(17, 17, 17, 0.9);
+    padding: 10px 30px;
+    border-radius: 50px;
+    border: 1px solid #208cff;
+    z-index: 100;
+    backdrop-filter: blur(5px);
+}
+
+/* 8. Estética de Títulos y Scrolls */
+h3 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    color: #208cff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #208cff;
+    padding-bottom: 8px;
+}
+
+/* Personalización del Scrollbar para que se vea "Espacial" */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #208cff;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00f2ff;
+}

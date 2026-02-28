@@ -1,0 +1,185 @@
+/* IASTRONAUT DESIGN SYSTEM - SHARED TOKENS */
+:root {
+    --space-black: #02040a;
+    --earth-blue: #58a6ff;
+    --button-cyan: #3cefff;
+    --text-white: #e6edf3;
+    --glass-bg: rgba(13, 17, 23, 0.8);
+    --glass-border: rgba(88, 166, 255, 0.2);
+    --font-main: 'Outfit', sans-serif;
+    --font-header: 'Orbitron', sans-serif;
+    --panel-radius: 16px;
+    --accent-glow: 0 0 20px rgba(88, 166, 255, 0.4);
+}
+
+/* 1. Global Reset & Body */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--space-black);
+    background-image: radial-gradient(circle at center, #1a2a44 0%, #02040a 100%), url('Image/Estrellas.png');
+    background-size: cover;
+    background-attachment: fixed;
+    color: var(--text-white);
+    font-family: var(--font-main);
+    overflow: hidden;
+}
+
+/* 2. Glassmorphism Panels */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--panel-radius);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+}
+
+/* 3. Typography & Headers */
+h1,
+h2,
+h3 {
+    font-family: var(--font-header);
+    letter-spacing: 2px;
+    text-shadow: var(--accent-glow);
+    margin-top: 0;
+}
+
+.glow-text {
+    color: var(--earth-blue);
+    text-shadow: var(--accent-glow);
+}
+
+/* 4. Interactive Elements */
+.iastronaut-btn {
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--text-white);
+    border: 1px solid var(--glass-border);
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: var(--font-header);
+    font-size: 0.85rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.iastronaut-btn:hover {
+    background: var(--earth-blue);
+    color: var(--space-black);
+    box-shadow: 0 0 20px rgba(88, 166, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.iastronaut-btn.active {
+    background: var(--earth-blue);
+    color: var(--space-black);
+    box-shadow: 0 0 15px var(--earth-blue);
+}
+
+/* 5. Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(2, 4, 10, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--earth-blue);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--button-cyan);
+}
+
+/* 6. Animations */
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        opacity: 1;
+        filter: brightness(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        filter: brightness(1.5);
+    }
+}
+
+@keyframes scanLine {
+    0% {
+        transform: translateY(-100%);
+    }
+
+    100% {
+        transform: translateY(100vh);
+    }
+}
+
+.pulse {
+    animation: pulseGlow 2s infinite;
+}
+
+/* 7. Transcript & Word Highlighting */
+.lectura-espacial {
+    line-height: 1.8;
+    letter-spacing: 0.05rem;
+    padding: 25px;
+    font-size: 1.15rem;
+    color: rgba(230, 237, 243, 0.6);
+    scroll-behavior: smooth;
+    transition: all 0.3s ease;
+}
+
+.palabra {
+    display: inline-block;
+    margin-right: 0.3rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
+    border-radius: 4px;
+    padding: 0 4px;
+}
+
+.highlight-word {
+    color: #fff !important;
+    background: rgba(88, 166, 255, 0.3);
+    box-shadow: 0 0 15px rgba(88, 166, 255, 0.2);
+    text-shadow: 0 0 10px #fff;
+    transform: scale(1.05);
+    z-index: 10;
+}
+/* 8. Chat Interface Styles */
+.chat-msg {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.user-msg {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-white);
+    border-left: 3px solid var(--text-white);
+}
+
+.ai-msg {
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--button-cyan);
+    border-left: 3px solid var(--button-cyan);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
