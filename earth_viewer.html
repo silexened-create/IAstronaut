@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorador Terrestre en Tiempo Real | IAstronaut</title>
+    <meta name="description"
+        content="Explora la Tierra en 3D con iluminación solar en tiempo real. Observa qué partes del planeta están iluminadas por el sol en este momento exacto.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
+
+    <style>
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-box {
+            pointer-events: auto;
+        }
+
+        .title-box h1 {
+            margin: 0;
+            font-family: var(--font-header);
+            font-size: 3rem;
+            background: linear-gradient(90deg, #fff, var(--earth-blue));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: var(--accent-glow);
+        }
+
+        .title-box p {
+            margin: 10px 0 0 0;
+            font-weight: 300;
+            color: var(--text-white);
+            opacity: 0.7;
+            letter-spacing: 1px;
+        }
+
+        .right-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            pointer-events: auto;
+            width: 350px;
+        }
+
+        .info-panel,
+        .temporal-controls {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--panel-radius);
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            font-family: var(--font-header);
+            font-size: 0.75rem;
+            color: var(--earth-blue);
+            letter-spacing: 1px;
+        }
+
+        .control-value {
+            font-family: var(--font-header);
+            font-size: 0.8rem;
+            color: var(--button-cyan);
+            background: rgba(88, 166, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--button-cyan);
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.4);
+            font-family: var(--font-header);
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: 0.3s;
+        }
+
+        .mode-btn.active {
+            background: var(--earth-blue);
+            color: var(--space-black);
+            box-shadow: 0 0 15px var(--earth-blue);
+        }
+
+        .stat-item {
+            margin-bottom: 15px;
+        }
+
+        .stat-label {
+            display: block;
+            font-family: var(--font-header);
+            font-size: 0.7rem;
+            color: var(--earth-blue);
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 300;
+            color: var(--text-white);
+        }
+
+        .bottom-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .controls-hint {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: var(--earth-blue);
+            border: 1px solid var(--glass-border);
+            font-family: var(--font-header);
+            letter-spacing: 1px;
+        }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--space-black);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(88, 166, 255, 0.1);
+            border-top: 3px solid var(--button-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 25px;
+            box-shadow: 0 0 20px rgba(60, 239, 255, 0.2);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loader-text {
+            font-family: var(--font-header);
+            font-size: 1.2rem;
+            color: var(--button-cyan);
+            letter-spacing: 4px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <div class="loader-text">Sincronizando con el Sol...</div>
+    </div>
+
+    <div class="ui-overlay">
+        <div class="header">
+            <div class="title-box">
+                <a href="astronauta.html"
+                    style="text-decoration: none; color: var(--accent-color); font-size: 0.9rem; margin-bottom: 10px; display: inline-block;">←
+                    Volver a la Misión</a>
+                <h1>Earth Live</h1>
+                <p>Simulación de iluminación solar en tiempo real</p>
+            </div>
+
+            <div class="right-sidebar">
+                <!-- Temporal Controls first -->
+                <div class="temporal-controls">
+                    <div class="control-header">
+                        <label>Modo de Simulación</label>
+                    </div>
+                    <div class="mode-toggle">
+                        <button id="live-mode" class="mode-btn active">TIEMPO REAL</button>
+                        <button id="manual-mode" class="mode-btn">EXPLORACIÓN</button>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <label>Estación (Día del año)</label>
+                            <span id="view-day" class="control-value">Hoy</span>
+                        </div>
+                        <input type="range" id="day-range" min="1" max="365" value="1">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <label>Hora del Día (GMT)</label>
+                            <span id="view-hour" class="control-value">Ahora</span>
+                        </div>
+                        <input type="range" id="hour-range" min="0" max="23.9" step="0.1" value="12">
+                    </div>
+                </div>
+
+                <!-- Info Panel under temporal controls -->
+                <div class="info-panel">
+                    <div class="stat-item">
+                        <span class="stat-label">Fecha Actual</span>
+                        <span id="current-date" class="stat-value">--/--/----</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Hora UTC</span>
+                        <span id="current-time" class="stat-value">00:00:00</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Posición del Sol</span>
+                        <span id="sun-coords" class="stat-value">Calculando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="controls-hint">
+                Click y Arrastra para Orbitar • Scroll para Zoom • Inmersión Total
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+          }
+        }
+    </script>
+    <script type="module" src="js/earth_viewer.js"></script>
+</body>
+
+</html>

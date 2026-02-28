@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAstronaut - Escaneo Biométrico</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
+
+    <style>
+        /* Ajustes específicos para el HUD de cámara */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr 350px;
+            height: 100vh;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .indice-navegacion {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .monitor {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 4/3;
+            border: 1px solid var(--earth-blue);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(88, 166, 255, 0.2);
+            background: #000;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            filter: brightness(1.2) contrast(1.1) saturate(0.8);
+        }
+
+        /* Scanline Anim */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--button-cyan);
+            box-shadow: 0 0 15px var(--button-cyan), 0 0 30px var(--button-cyan);
+            animation: scan 4s linear infinite;
+            z-index: 5;
+            opacity: 0.8;
+        }
+
+        @keyframes scan {
+            0% {
+                top: -2%;
+            }
+
+            100% {
+                top: 102%;
+            }
+        }
+
+        /* Overlay para la cuenta regresiva */
+        #overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 10;
+            font-family: var(--font-header);
+            font-size: 8rem;
+            color: #fff;
+            text-shadow: 0 0 30px var(--button-cyan);
+        }
+
+        .result-box {
+            background: rgba(88, 166, 255, 0.05);
+            border: 1px inset var(--glass-border);
+            padding: 20px;
+            margin-top: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            border-radius: 8px;
+            color: var(--button-cyan);
+            font-size: 0.9rem;
+        }
+
+        #status-mini {
+            font-size: 0.7rem;
+            margin-top: 15px;
+            color: var(--earth-blue);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: var(--font-header);
+        }
+
+        .hologram-effect {
+            background: linear-gradient(rgba(88, 166, 255, 0.1) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            opacity: 0.1;
+        }
+
+        .corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--button-cyan);
+            z-index: 6;
+        }
+
+        .tl {
+            top: 10px;
+            left: 10px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .tr {
+            top: 10px;
+            right: 10px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .bl {
+            bottom: 10px;
+            left: 10px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .br {
+            bottom: 10px;
+            right: 10px;
+            border-left: none;
+            border-top: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard">
+        <div class="indice-navegacion glass-panel">
+            <h3>🆔 BIOMETRÍA</h3>
+
+            <button class="iastronaut-btn active"
+                onclick="cambiarMision(this, 'detectar si el usuario tiene los ojos abiertos o cerrados')">
+                👁️ ESCANEO OCULAR
+            </button>
+
+            <button class="iastronaut-btn"
+                onclick="cambiarMision(this, 'detectar si el usuario tiene la boca abierta o cerrada')">
+                👄 COMUNICACIÓN VISUAL
+            </button>
+
+            <button class="iastronaut-btn"
+                onclick="cambiarMision(this, 'detectar si el usuario tiene algo puesto en la cabeza como un gorro, casco o accesorio')">
+                🧢 CHEQUEO DE EQUIPO
+            </button>
+
+            <div style="flex: 1;"></div>
+
+            <button class="iastronaut-btn" onclick="location.href='astronauta.html'"
+                style="border-color: #ff3c3c; color: #ff3c3c;">
+                🚀 ABORTAR MISIÓN
+            </button>
+        </div>
+
+        <div class="monitor">
+            <h2 id="status-main" class="glow-text" style="font-size: 1.2rem; margin-bottom: 20px;">[ ESCÁNER DE INTERFAZ
+                NEURONAL ]</h2>
+
+            <div class="scanner-container">
+                <div class="hologram-effect"></div>
+                <div class="corner tl"></div>
+                <div class="corner tr"></div>
+                <div class="corner bl"></div>
+                <div class="corner br"></div>
+                <div class="scan-line"></div>
+                <video id="webcam" autoplay playsinline></video>
+                <div id="overlay"></div>
+            </div>
+
+            <div class="controles-scanner">
+                <button id="btn-scan" class="iastronaut-btn" style="width: 300px; font-weight: bold; font-size: 1rem;">
+                    INICIAR ESCÁNER
+                </button>
+            </div>
+        </div>
+
+        <div class="monitor-comunicaciones glass-panel">
+            <h3>📊 REPORTE DE ANÁLISIS</h3>
+            <div id="result" class="result-box">
+                <p style="opacity: 0.6;">> ESPERANDO ENLACE NEURONAL...</p>
+                <p style="opacity: 0.6;">> ASEGÚRESE QUE SU ROSTRO ESTÉ EN EL RANGO DEL ESCÁNER.</p>
+            </div>
+            <div id="status-mini" class="pulse">
+                🛰️ SISTEMA LISTO PARA SINCRONIZACIÓN
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script type="module" src="js/biometrico.js"></script>
+
+</body>
+
+</html>

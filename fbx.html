@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visor de modelos FBX - IAstronaut</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #050505;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    select {
+      background: #222;
+      color: #fff;
+      border: 1px solid #666;
+      padding: 8px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+      width: 200px;
+    }
+    #loading-screen {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      transition: opacity 0.5s;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-screen">
+    <h2>Cargando Motores Espaciales...</h2>
+  </div>
+
+  <div id="overlay">
+    <label for="modelSelect" style="display:block; margin-bottom:8px;">Misión / Modelo FBX:</label>
+    <select id="modelSelect">
+      <option value="">Buscando archivos...</option>
+    </select>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    let scene, camera, renderer, controls, mixer;
+    const clock = new THREE.Clock();
+    let currentModel = null;
+
+    // Inicialización
+    init();
+
+    function init() {
+      // Escena
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050505);
+      scene.fog = new THREE.Fog(0x050505, 10, 50);
+
+      // Cámara
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera.position.set(2, 2, 5);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Controles
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(0, 1, 0);
+
+      // Luces
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+      dirLight.position.set(5, 10, 5);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // Grid de referencia (Suelo espacial)
+      const grid = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
+      scene.add(grid);
+
+      // Cargar archivos mediante PHP
+      loadFileList();
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+
+      // Ocultar pantalla de carga inicial
+      setTimeout(() => {
+        document.getElementById('loading-screen').style.opacity = 0;
+        setTimeout(() => document.getElementById('loading-screen').remove(), 500);
+      }, 1000);
+    }
+
+    async function loadFileList() {
+      try {
+        const response = await fetch('get_fbx_files.php');
+        const files = await response.json();
+        const select = document.getElementById('modelSelect');
+        select.innerHTML = '';
+
+        if (files.length === 0) {
+          select.innerHTML = '<option>Sin archivos .fbx</option>';
+          return;
+        }
+
+        files.forEach(file => {
+          const option = document.createElement('option');
+          option.value = file;
+          option.textContent = file;
+          select.appendChild(option);
+        });
+
+        // Cargar el primero por defecto
+        loadModel(files[0]);
+
+        select.addEventListener('change', (e) => loadModel(e.target.value));
+      } catch (err) {
+        console.error("Error al obtener la lista de archivos:", err);
+      }
+    }
+
+    function loadModel(name) {
+      if (currentModel) scene.remove(currentModel);
+      if (mixer) mixer = null;
+
+      const loader = new FBXLoader();
+      loader.load(name, (object) => {
+        currentModel = object;
+        
+        // Ajuste de escala automático para modelos de la NASA (suelen ser muy grandes)
+        const box = new THREE.Box3().setFromObject(object);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 2 / maxDim; // Escalar para que mida 2 unidades
+        object.scale.setScalar(scale);
+        
+        // Centrar
+        object.position.y = 0;
+        
+        object.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        scene.add(object);
+
+        if (object.animations && object.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(object);
+          mixer.clipAction(object.animations[0]).play();
+        }
+        
+        console.log(`Modelo ${name} cargado con éxito.`);
+      });
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>

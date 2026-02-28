@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IAstronauta - Dashboard Espacial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="astro.css" />
+</head>
+
+<body>
+  <script>
+    if (!window.fetch || !window.Promise || !Array.from) {
+      alert("Su navegador no es compatible. Por favor actualice a una versión más reciente.");
+    }
+    window.conversationHistory = [];
+    window.modo = "idle";
+  </script>
+
+  <div id="modal-instrucciones" class="modal-instrucciones">
+    <div class="modal-contenido">
+      <h1 id="instr-title">Bienvenido a <span class="highlight">IAstronauta</span></h1>
+      <p id="instr-desc">Iniciando enlace neuronal con la terminal de comunicación...</p>
+      <div class="terminal-box">
+        <ol id="instr-list">
+          <li>Habla con normalidad y el Astronauta te escuchará.</li>
+          <li>Conversación neuronal continua activada.</li>
+          <li>Sistema de respuesta sensible al contexto activado.</li>
+        </ol>
+      </div>
+      <p id="instr-important-title"><strong>ℹ️ ESTADO DEL SISTEMA:</strong></p>
+      <ul id="instr-important-body">
+        <li>La calibración puede tardar hasta <strong>30 segundos</strong>.</li>
+        <li>Mantén la calma mientras el Astronauta responde.</li>
+      </ul>
+      <p id="instr-start">¿Listo para la transmisión?</p>
+      <button id="btn-aceptar">INICIAR MISIÓN</button>
+    </div>
+  </div>
+
+  <div id="contenido-principal">
+    <header>
+      <div class="header-content">
+        <div class="logo-area">
+          <img id="Papel" src="Image/planeta.webp" alt="planeta" />
+          <h1 id="main-title">IASTRONAUTA <span class="accent">AI</span></h1>
+          <img id="Libro" src="Image/galaxia.webp" alt="galaxia" />
+        </div>
+        <nav>
+          <ul>
+            <li><a id="nav-home" href="astronauta.html">Inicio</a></li>
+            <li><a href="biometria.html" class="nav-biometria">Biometría</a></li>
+            <li><a id="nav-earth" href="earth_viewer.html" class="nav-earth">Vista Terrestre</a></li>
+            <li><a id="nav-doc" href="documental.html" class="nav-doc">Misión</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="dashboard-left">
+        <div class="decorative-asset">
+          <img id="Mano" src="Image/Satelite.png" alt="Satélite" />
+          <div class="asset-info">
+            <span class="label">ESTADO SATELITAL</span>
+            <span class="value">ENLACE ACTIVO</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-center">
+        <div id="modelo-container"></div>
+      </section>
+
+      <section class="dashboard-right">
+        <div id="chat-container">
+          <div class="chat-header">
+            <div class="status-dot"></div>
+            <h2>TERMINAL DE COMUNICACIÓN</h2>
+            <span class="encryption-tag">ENCRIPTACIÓN DE 256 BITS</span>
+          </div>
+
+          <div id="chat-history">
+            <div class="system-message">INICIALIZANDO SISTEMA... BIENVENIDO ASTRONAUTA.</div>
+          </div>
+
+          <div id="spinner" class="hidden"><em>🕗 PROCESANDO SEÑAL...</em></div>
+
+          <form id="chat-form">
+            <button type="button" id="mic-btn" title="Activar micrófono">🎤</button>
+            <input id="chat-input" type="text" autocomplete="off" placeholder="TRANSMITIR MENSAJE...">
+            <button type="submit">ENVIAR</button>
+          </form>
+        </div>
+
+        <div class="decorative-asset bottom-asset">
+          <img id="Pluma" src="Image/Cohete.png" alt="Cohete" />
+          <div class="asset-info">
+            <span class="label">PROPULSIÓN</span>
+            <span class="value">ESTABLE</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p id="copyright">&copy; 2026 IAstronauta.</p>
+      <p id="social-follow">Síguenos en: <a href="#">Facebook</a>, <a href="#">Twitter</a>, <a href="#">Instagram</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script src="js/ui.js" type="module"></script>
+  <script src="js/tts.js" type="module"></script>
+  <script src="js/recognition.js" type="module"></script>
+  <script src="js/main_astronauta.js" type="module"></script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+    // Pre-carga de imágenes
+    window.addEventListener("DOMContentLoaded", () => {
+      ["Image/Satelite.png", "Image/Cohete.png", "Image/planeta.webp", "Image/galaxia.webp"].forEach(src => {
+        const img = new Image();
+        img.src = src;
+      });
+    });
+
+    let container, scene, camera, renderer, mixer;
+    const clock = new THREE.Clock();
+
+    function initThree() {
+      container = document.getElementById("modelo-container");
+      if (!container) return;
+
+      let width = container.clientWidth || 450;
+      let height = container.clientHeight || 600;
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+
+      // Colores de iluminación más vibrantes (Tonos espaciales)
+      scene.add(new THREE.AmbientLight(0xffffff, 1.8)); // Luz ambiental fuerte
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+      hemiLight.position.set(0, 20, 0);
+      scene.add(hemiLight);
+
+      const dir = new THREE.DirectionalLight(0x58a6ff, 2); // Luz con ligero tono azul
+      dir.position.set(5, 10, 15);
+      scene.add(dir);
+
+      // Luz de realce (Rim light) para contornos
+      const rimLight = new THREE.PointLight(0x3cefff, 2, 100);
+      rimLight.position.set(-15, 5, -10);
+      scene.add(rimLight);
+
+      container.appendChild(renderer.domElement);
+
+      // Ajuste de cámara para el modelo del astronauta
+      camera.position.set(0, 10, 50);
+
+      const loader = new FBXLoader();
+      loader.load('Nadando.fbx', (obj) => {
+        // Ajuste automático de escala y MATERIALES
+        obj.traverse(child => {
+          if (child.isMesh) {
+            // Mejoramos el material para que brille y no sea opaco
+            if (child.material) {
+              child.material.metalness = 0.6;
+              child.material.roughness = 0.3;
+              child.material.emissive = new THREE.Color(0x111111); // Brillo sutil
+              child.material.needsUpdate = true;
+            }
+          }
+        });
+
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 32 / maxDim;
+        obj.scale.setScalar(scale);
+
+        obj.position.set(0, -10, 0);
+        scene.add(obj);
+
+        if (obj.animations && obj.animations.length) {
+          mixer = new THREE.AnimationMixer(obj);
+          const action = mixer.clipAction(obj.animations[0]);
+          action.play();
+        }
+      }, undefined, err => console.error('FBX load error:', err));
+
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      if (!container || !renderer || !camera) return;
+      let width = container.clientWidth;
+      let height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    window.addEventListener("resize", onWindowResize);
+
+    // Lógica de Salto Automático del Modal
+    function checkAutoSkip() {
+      const referrer = document.referrer;
+      const fromMission = referrer.includes('biometria.html') ||
+        referrer.includes('earth_viewer.html') ||
+        referrer.includes('documental.html');
+
+      const sessionStarted = sessionStorage.getItem('astronaut_mission_started') === 'true';
+
+      if (fromMission || sessionStarted) {
+        console.log("✈️ [MISION] Saltando instrucciones (Retorno de submódulo o sesión activa)");
+        const modal = document.getElementById("modal-instrucciones");
+        const main = document.getElementById("contenido-principal");
+        if (modal) modal.style.display = "none";
+        if (main) main.style.display = "flex";
+        setTimeout(initThree, 100);
+      }
+    }
+
+    document.getElementById("btn-aceptar").addEventListener("click", () => {
+      // Guardamos en la sesión que la misión ya inició
+      sessionStorage.setItem('astronaut_mission_started', 'true');
+      // main_astronauta.js ya oculta el modal
+      setTimeout(initThree, 100);
+    });
+
+    // Ejecutar verificación al cargar
+    checkAutoSkip();
+  </script>
+</body>
+
+</html>

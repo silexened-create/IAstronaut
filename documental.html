@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>IAstronaut - Misión Sistema Solar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
+
+    <style>
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr 380px;
+            height: calc(100vh - 80px);
+            /* Space for audio controls */
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .indice-navegacion {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        #menu-planetas {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .monitor {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            position: relative;
+            padding: 20px;
+        }
+
+        #titulo-capitulo {
+            position: absolute;
+            top: 20px;
+            font-size: 1.2rem;
+            color: var(--button-cyan);
+        }
+
+        #planeta-gif {
+            max-width: 90%;
+            max-height: 70%;
+            filter: drop-shadow(0 0 30px var(--earth-blue));
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .lectura-espacial {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(13, 17, 23, 0.9);
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            max-height: 120px;
+            overflow-y: auto;
+            text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .monitor-comunicaciones {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .chat-display {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px inset var(--glass-border);
+            border-radius: 10px;
+            padding: 15px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            color: var(--text-white);
+        }
+
+        .input-grupo {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-grupo input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            outline: none;
+        }
+
+        .input-grupo button {
+            background: var(--earth-blue);
+            color: var(--space-black);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: var(--font-header);
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .home-link {
+            text-decoration: none;
+            color: var(--button-cyan);
+            border: 1px solid var(--button-cyan);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: var(--font-header);
+            font-size: 0.8rem;
+            transition: 0.3s;
+        }
+
+        .home-link:hover {
+            background: var(--button-cyan);
+            color: var(--space-black);
+        }
+
+        /* Mission Log Style for Playlist */
+        .btn-destino {
+            background: rgba(88, 166, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-white);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+
+        .btn-destino:hover {
+            background: rgba(88, 166, 255, 0.2);
+            border-color: var(--earth-blue);
+        }
+
+        .btn-destino.activo {
+            border-color: var(--button-cyan);
+            background: rgba(60, 239, 255, 0.1);
+            color: var(--button-cyan);
+            box-shadow: 0 0 10px rgba(60, 239, 255, 0.2);
+        }
+
+        .controles {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        audio {
+            width: 100%;
+            filter: invert(100%) hue-rotate(180deg) brightness(1.5);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard">
+        <div class="indice-navegacion glass-panel">
+            <a href="astronauta.html" class="home-link">
+                🏠 CONTROL CENTRAL
+            </a>
+            <div id="menu-planetas">
+                <h3>📍 BITÁCORA DE MISIÓN</h3>
+                <!-- Contenido dinámico desde JS -->
+            </div>
+        </div>
+
+        <div class="monitor glass-panel">
+            <h2 id="titulo-capitulo" class="pulse">SINCRONIZANDO DATOS...</h2>
+            <img id="planeta-gif" src="Image/solar_system.gif" alt="Planeta">
+            <div class="lectura-espacial" id="contenedor-texto"></div>
+        </div>
+
+        <div class="monitor-comunicaciones glass-panel">
+            <h3>📻 RADIO DE MISIÓN</h3>
+            <div id="chat-ia" class="chat-display">
+                <p>> Bienvenido, Cadete. Enlace de comunicación establecido.</p>
+                <p>> Seleccione un destino para iniciar la telemetría visual.</p>
+            </div>
+            <div class="input-grupo">
+                <input type="text" id="pregunta-input" placeholder="TRANSMITIR A CONTROL..."
+                    onkeypress="if(event.key === 'Enter') procesarPregunta()">
+                <button onclick="procesarPregunta()">ENVIAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controles">
+        <audio id="audio-doc" controls src="audio/Documental Espacio 2024.m4a"></audio>
+    </div>
+
+    <script type="module" src="js/documental.js"></script>
+</body>
+
+</html>
