@@ -43,7 +43,9 @@
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             position: relative;
+            /* REQUIRED for absolute children */
             padding: 20px;
+            overflow: hidden;
         }
 
         #titulo-capitulo {
@@ -51,11 +53,14 @@
             top: 20px;
             font-size: 1.2rem;
             color: var(--button-cyan);
+            z-index: 5;
         }
 
         #planeta-gif {
             max-width: 90%;
-            max-height: 70%;
+            max-height: 80%;
+            /* Breathing room for text */
+            object-fit: contain;
             filter: drop-shadow(0 0 30px var(--earth-blue));
             animation: float 6s ease-in-out infinite;
         }
@@ -74,18 +79,23 @@
 
         .lectura-espacial {
             position: absolute;
-            bottom: 20px;
+            bottom: 40px;
+            /* Over planet's bottom */
             left: 20px;
             right: 20px;
-            background: rgba(13, 17, 23, 0.9);
-            padding: 15px 25px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+            /* Contrast for text */
+            padding: 20px 30px;
             border-radius: 12px;
-            border: 1px solid var(--glass-border);
-            max-height: 120px;
+            max-height: 150px;
             overflow-y: auto;
             text-align: center;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             line-height: 1.6;
+            z-index: 10;
+            pointer-events: none;
+            /* Interact with planet behind if needed */
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .monitor-comunicaciones {
@@ -232,7 +242,7 @@
     </div>
 
     <div class="controles">
-        <audio id="audio-doc" controls src="audio/Documental Espacio 2024.m4a"></audio>
+        <audio id="audio-doc" controls></audio>
     </div>
 
     <script type="module" src="js/documental.js"></script>
