@@ -1,6 +1,8 @@
 import { addMsg, showSpinner, hideSpinner } from './ui.js';
 import { speak } from './tts.js';
 
+const BASE_URL = "https://iastronaut.onrender.com";
+
 let modo = "idle";
 let preguntaPendiente = "";
 let escuchando = false;
@@ -102,7 +104,7 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       content: m.texto
     }));
 
-    const BASE_URL = "https://iastronaut-api.onrender.com";
+    console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
     const r = await fetch(`${BASE_URL}/proxy.php`, {
       method: "POST",
       mode: 'cors',
