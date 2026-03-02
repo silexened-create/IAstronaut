@@ -5,20 +5,72 @@ body {
     background: #050505;
     color: white;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;
-    /* Evita scroll en toda la página */
+    overflow-x: hidden;
+    overflow-y: auto;
     margin: 0;
 }
 
 .dashboard {
     display: grid;
-    /* Configuración de 4 columnas: Índice, Monitor, Texto, Radio */
     grid-template-columns: 240px 400px 1fr 320px;
-    height: 100vh;
+    min-height: 100vh;
     gap: 15px;
     padding: 20px;
     box-sizing: border-box;
     background-image: radial-gradient(circle at center, #0a0a1a 0%, #050505 100%);
+}
+
+@media (max-width: 1400px) {
+    .dashboard {
+        grid-template-columns: 240px 1fr 320px;
+    }
+
+    .lectura-espacial {
+        grid-column: span 3;
+        order: 10;
+        max-height: none !important;
+    }
+}
+
+@media (max-width: 1000px) {
+    .dashboard {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .indice-navegacion {
+        grid-column: span 2;
+        height: auto !important;
+    }
+
+    .monitor {
+        grid-column: span 2;
+    }
+
+    .monitor-comunicaciones {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+        padding: 10px;
+    }
+
+    .indice-navegacion,
+    .monitor,
+    .monitor-comunicaciones,
+    .lectura-espacial {
+        grid-column: span 1;
+    }
+
+    .lectura-espacial {
+        padding: 20px;
+    }
+
+    .palabra {
+        font-size: 1.2rem;
+    }
 }
 
 /* 2. Paneles Comunes */
@@ -27,8 +79,17 @@ body {
 .lectura-espacial,
 .monitor-comunicaciones {
     max-height: calc(100vh - 120px);
-    /* Altura fija para todos */
     box-sizing: border-box;
+}
+
+@media (max-width: 1000px) {
+
+    .indice-navegacion,
+    .monitor,
+    .lectura-espacial,
+    .monitor-comunicaciones {
+        max-height: none;
+    }
 }
 
 /* 3. Panel Izquierdo: Índice */

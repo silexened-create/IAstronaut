@@ -30,6 +30,34 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 40px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 900px) {
+            .ui-overlay {
+                padding: 15px;
+                display: block;
+                /* Allow normal flow */
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .right-sidebar {
+                width: 100% !important;
+            }
+
+            .title-box h1 {
+                font-size: 2rem !important;
+            }
+
+            .bottom-bar {
+                margin-top: 20px;
+                position: relative;
+                bottom: 0;
+            }
         }
 
         .header {

@@ -109,7 +109,34 @@ nav ul li a:hover {
   grid-template-columns: 280px 1fr 500px;
   gap: 20px;
   padding: 20px;
-  overflow: hidden;
+  overflow-y: auto;
+}
+
+@media (max-width: 1200px) {
+  .dashboard {
+    grid-template-columns: 1fr 1.5fr;
+  }
+  .dashboard-left {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 15px;
+  }
+  
+  .dashboard-center {
+    order: -1;
+    height: 350px;
+    min-height: 300px;
+  }
+
+  .dashboard-right {
+    gap: 15px;
+  }
 }
 
 .dashboard-left,
