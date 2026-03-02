@@ -1,8 +1,6 @@
-/**
- * js/documental.js - MOTOR DE TRANSCRIPCIÓN DE BITÁCORA DE MISIÓN
- * Implementación de Tecnólogo Creativo
- */
 import { speak } from './tts.js';
+
+const BASE_URL = "https://iastronaut.onrender.com";
 
 console.log("🚀 [SISTEMA] Inicializando Motor de Bitácora de Misión...");
 
@@ -232,7 +230,7 @@ async function processQuestion() {
     const prompt = `Rol: Control de Misión IAstronauta. Contexto: ${context}. Pregunta del Cadete: "${question}". Responde como una IA espacial. Sé conciso y educativo.`;
 
     try {
-        const BASE_URL = "https://iastronaut-api.onrender.com";
+        console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
         const response = await fetch(`${BASE_URL}/proxy.php`, {
             method: 'POST',
             mode: 'cors',
