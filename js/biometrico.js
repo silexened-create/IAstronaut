@@ -181,10 +181,13 @@ async function captureFrame() {
 
 async function transmitToCommand(imageData) {
     try {
-        const BACKEND_URL = "https://iastronaut-backend.onrender.com"; // CAMBIAR POR URL REAL DE RENDER
-        const response = await fetch(`${BACKEND_URL}/vision.php`, {
+        const BACKEND_URL = "http://iastronaut-api.ct.ws"; 
+        const response = await fetch(`${BACKEND_URL}/api/vision.php`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors', // <--- AÑADE ESTO
+            headers: { 
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 image: imageData,
                 objetivo: objetivoActual
@@ -205,9 +208,12 @@ async function transmitToCommand(imageData) {
 
 function processAIResult(data) {
     try {
+        // OpenRouter devuelve la respuesta en data.choices[0].message.content
         const aiMessage = data.choices[0].message.content;
-        const jsonMatch = aiMessage.match(/\{.*\}/s);
-        const res = jsonMatch ? JSON.parse(jsonMatch[0]) : { titulo: "Analysis Error", comentario: "Could not parse neural feedback." };
+        
+        // Intentamos limpiar el texto por si la IA añade bloques de código Markdown ```json
+        const cleanJson = aiMessage.replace(/```json|```/g, "").trim();
+        const res = JSON.parse(cleanJson);
 
         elements.resultBox.innerHTML = `
             <h2 class="glow-text" style="font-size: 1rem; color: var(--button-cyan);">${res.titulo.toUpperCase()}</h2>
@@ -215,7 +221,9 @@ function processAIResult(data) {
         `;
         updateUIState('ready');
     } catch (e) {
-        console.error("Result processing error:", e);
+        console.error("Error al procesar el JSON de la IA:", e);
+        // Si falla el parseo, mostramos el texto plano como respaldo
+        elements.resultBox.innerHTML = `<p style="font-size:0.85rem;">> ${data.choices[0].message.content}</p>`;
         updateUIState('ready');
     }
 }
@@ -224,4 +232,5 @@ function processAIResult(data) {
 window.addEventListener('load', engageCamera);
 if (elements.btnScan) {
     elements.btnScan.addEventListener('click', startScanProtocol);
+
 }
