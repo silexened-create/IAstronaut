@@ -1,33 +1,22 @@
 <?php
-// Evitar que cualquier error previo ensucie la salida
-ob_start();
+// 1. Permitir cualquier origen (Vercel)
+header("Access-Control-Allow-Origin: *");
+// 2. Permitir métodos POST y JSON
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
-$allowed_origin = "https://i-astronaut.vercel.app";
-
-// Solo enviamos la cabecera si no ha sido enviada ya por Apache/htaccess
-if (!headers_sent()) {
-    header("Access-Control-Allow-Origin: $allowed_origin");
-    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-    header("Access-Control-Allow-Credentials: true");
-}
-
-// Responder al preflight (OPTIONS)
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+// 3. Manejar la petición "preflight" (OPTIONS) que hace el navegador
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-// Limpiar cualquier salida accidental y asegurar JSON
-header("Content-Type: application/json; charset=utf-8");
-}
 /* ============================================================
-    CARGAR API KEY (CONFIGURACIÓN PARA RENDER.COM)
+    1. CONFIGURACIÓN DE SEGURIDAD Y CARGA DE VARIABLES
    ============================================================ */
 $apiKey = getenv("OPENROUTER_API_KEY");
 
 if (!$apiKey) {
-    echo json_encode(["reply" => "❌ Error: Configuración de energía insuficiente (Falta API Key en el entorno)."]);
+    echo json_encode(["reply" => "❌ Error: API Key no detectada."]);
     exit;
 }
 
