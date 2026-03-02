@@ -232,7 +232,7 @@ async function processQuestion() {
     const prompt = `Rol: Control de Misión IAstronauta. Contexto: ${context}. Pregunta del Cadete: "${question}". Responde como una IA espacial. Sé conciso y educativo.`;
 
     try {
-        const BACKEND_URL = "http://iastronaut-api.ct.ws";
+        const BACKEND_URL = "https://iastronaut-api.ct.ws";
         const response = await fetch(`${BACKEND_URL}/api/proxy.php`, {
             method: 'POST',
             mode: 'cors',
@@ -273,4 +273,5 @@ window.saltarA = (index) => loadChapter(index);
 
 
 document.addEventListener('DOMContentLoaded', loadMissionLog);
+
 
