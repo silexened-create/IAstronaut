@@ -149,7 +149,7 @@ function injectUtilityButtons() {
     btnHub.innerHTML = '🏠 CONTROL CENTRAL';
     btnHub.onclick = () => {
         elements.audio.pause();
-        location.href = 'astronauta.html';
+        location.href = 'index.html';
     };
 
     navContainer.appendChild(btnEarth);
@@ -273,3 +273,4 @@ window.saltarA = (index) => loadChapter(index);
 
 
 document.addEventListener('DOMContentLoaded', loadMissionLog);
+
