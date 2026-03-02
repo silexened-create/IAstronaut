@@ -1,32 +1,26 @@
 <?php
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    header("Access-Control-Allow-Credentials: true");
+    header("HTTP/1.1 200 OK");
     exit;
 }
 
-/**
- * MOTOR DE VISIÓN UNIVERSAL - IAstronaut
- * Configurado para misiones dinámicas y carga de .env / getenv
- */
+header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json; charset=utf-8");
 
-// 1. CARGAR API KEY
+/**
+ * CONFIGURACIÓN DE MISIONES DINÁMICAS Y CARGA DE API KEY (RENDER.COM)
+ */
 $apiKey = getenv("OPENROUTER_API_KEY");
 
 if (!$apiKey) {
-    $envFile = __DIR__ . '/.env';
-    if (file_exists($envFile)) {
-        $env = parse_ini_file($envFile);
-        $apiKey = $env['OPENROUTER_API_KEY'] ?? null;
-    }
-}
-
-if (!$apiKey) {
-    echo json_encode(["error" => "API Key no configurada en el servidor."]);
+    echo json_encode(["error" => "API Key no configurada en el entorno del servidor."]);
     exit;
 }
 

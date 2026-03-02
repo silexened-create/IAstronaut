@@ -1,35 +1,26 @@
-/* ============================================================
-   CONFIGURACIÓN INICIAL Y CORS
-   ============================================================ */
-// Permitir peticiones desde Vercel (ajustar dominio según sea necesario)
-$allowed_origin = "*"; // En producción, se recomienda cambiar "*" por el dominio de Vercel
-header("Access-Control-Allow-Origin: $allowed_origin");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Content-Type: application/json");
-
+<?php
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    header("Access-Control-Allow-Credentials: true");
+    header("HTTP/1.1 200 OK");
     exit;
 }
 
+header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json; charset=utf-8");
+
 /* ============================================================
-   CARGAR API KEY (MÉTODO SEGURO PARA RENDER/PRODUCTION)
+    CARGAR API KEY (CONFIGURACIÓN PARA RENDER.COM)
    ============================================================ */
-// Intentamos cargar desde el entorno (Render) o desde .env localmente
 $apiKey = getenv("OPENROUTER_API_KEY");
 
 if (!$apiKey) {
-    // Fallback para desarrollo local con .env
-    $envPath = __DIR__ . '/.env';
-    if (file_exists($envPath)) {
-        $env = @parse_ini_file($envPath);
-        $apiKey = $env["OPENROUTER_API_KEY"] ?? null;
-    }
-}
-
-if (!$apiKey) {
-    echo json_encode(["reply" => "❌ Error: Configuración de energía insuficiente (Falta API Key)."]);
+    echo json_encode(["reply" => "❌ Error: Configuración de energía insuficiente (Falta API Key en el entorno)."]);
     exit;
 }
 
