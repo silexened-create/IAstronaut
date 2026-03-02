@@ -102,7 +102,7 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       content: m.texto
     }));
 
-    const BACKEND_URL = "http://iastronaut-api.ct.ws"; // CAMBIAR POR URL REAL DE RENDER
+    const BACKEND_URL = "https://iastronaut-api.ct.ws"; // CAMBIAR POR URL REAL DE RENDER
     const r = await fetch(`${BACKEND_URL}/api/proxy.php`, {
       method: "POST",
       mode: 'cors',
@@ -135,3 +135,4 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
 });
+
