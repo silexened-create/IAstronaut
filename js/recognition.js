@@ -90,10 +90,11 @@ recog.onend = () => {
 // --- PROCESAR ENTRADA (CORREGIDO EXPORT) ---
 export async function procesarEntrada(texto, imagenB64 = null) {
   if (!texto && !imagenB64) return;
+  if (modo === "processing") return; 
   modo = "processing";
   detenerReconocimiento();
   showSpinner();
-  addMsg('Tú', texto);
+  if (texto) addMsg('Tú', texto);
 
   try {
     const history = (window.conversationHistory || []).map(m => ({
@@ -101,9 +102,10 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       content: m.texto
     }));
 
-    const BACKEND_URL = "https://iastronaut-backend.onrender.com"; // CAMBIAR POR URL REAL DE RENDER
-    const r = await fetch(`${BACKEND_URL}/proxy.php`, {
+    const BACKEND_URL = "http://iastronaut-api.ct.ws"; // CAMBIAR POR URL REAL DE RENDER
+    const r = await fetch(`${BACKEND_URL}/api/proxy.php`, {
       method: "POST",
+      mode: 'cors',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: texto, history: history, image: imagenB64 })
     });
@@ -131,4 +133,5 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!escuchando) activarEscucha();
     else desactivarEscucha();
   });
+
 });
