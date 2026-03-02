@@ -181,8 +181,8 @@ async function captureFrame() {
 
 async function transmitToCommand(imageData) {
     try {
-        const BACKEND_URL = "https://iastronaut-api.ct.ws/api/";
-        const response = await fetch(`${BACKEND_URL}vision.php`, {
+        const BASE_URL = "https://iastronaut-api.onrender.com";
+        const response = await fetch(`${BASE_URL}/vision.php`, {
             method: 'POST',
             mode: 'cors', // <--- AÑADE ESTO
             headers: {

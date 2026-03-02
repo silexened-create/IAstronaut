@@ -90,7 +90,7 @@ recog.onend = () => {
 // --- PROCESAR ENTRADA (CORREGIDO EXPORT) ---
 export async function procesarEntrada(texto, imagenB64 = null) {
   if (!texto && !imagenB64) return;
-  if (modo === "processing") return; 
+  if (modo === "processing") return;
   modo = "processing";
   detenerReconocimiento();
   showSpinner();
@@ -102,8 +102,8 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       content: m.texto
     }));
 
-    const BACKEND_URL = "https://iastronaut-api.ct.ws/api/";
-    const r = await fetch(`${BACKEND_URL}proxy.php`, {
+    const BASE_URL = "https://iastronaut-api.onrender.com";
+    const r = await fetch(`${BASE_URL}/proxy.php`, {
       method: "POST",
       mode: 'cors',
       headers: { "Content-Type": "application/json" },

@@ -232,8 +232,8 @@ async function processQuestion() {
     const prompt = `Rol: Control de Misión IAstronauta. Contexto: ${context}. Pregunta del Cadete: "${question}". Responde como una IA espacial. Sé conciso y educativo.`;
 
     try {
-        const BACKEND_URL = "https://iastronaut-api.ct.ws/api/";
-        const response = await fetch(`${BACKEND_URL}proxy.php`, {
+        const BASE_URL = "https://iastronaut-api.onrender.com";
+        const response = await fetch(`${BASE_URL}/proxy.php`, {
             method: 'POST',
             mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
