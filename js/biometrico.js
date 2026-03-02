@@ -181,11 +181,11 @@ async function captureFrame() {
 
 async function transmitToCommand(imageData) {
     try {
-        const BACKEND_URL = "https://iastronaut-api.ct.ws"; 
-        const response = await fetch(`${BACKEND_URL}/api/vision.php`, {
+        const BACKEND_URL = "https://iastronaut-api.ct.ws/api/";
+        const response = await fetch(`${BACKEND_URL}vision.php`, {
             method: 'POST',
             mode: 'cors', // <--- AÑADE ESTO
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -210,7 +210,7 @@ function processAIResult(data) {
     try {
         // OpenRouter devuelve la respuesta en data.choices[0].message.content
         const aiMessage = data.choices[0].message.content;
-        
+
         // Intentamos limpiar el texto por si la IA añade bloques de código Markdown ```json
         const cleanJson = aiMessage.replace(/```json|```/g, "").trim();
         const res = JSON.parse(cleanJson);

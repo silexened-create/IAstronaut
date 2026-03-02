@@ -232,8 +232,8 @@ async function processQuestion() {
     const prompt = `Rol: Control de Misión IAstronauta. Contexto: ${context}. Pregunta del Cadete: "${question}". Responde como una IA espacial. Sé conciso y educativo.`;
 
     try {
-        const BACKEND_URL = "https://iastronaut-api.ct.ws";
-        const response = await fetch(`${BACKEND_URL}/api/proxy.php`, {
+        const BACKEND_URL = "https://iastronaut-api.ct.ws/api/";
+        const response = await fetch(`${BACKEND_URL}proxy.php`, {
             method: 'POST',
             mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
@@ -248,15 +248,15 @@ async function processQuestion() {
 
         const loadEl = document.getElementById(loadingId);
         if (loadEl) loadEl.remove();
-        
+
         // Ajustamos para leer 'reply' que es lo que envía tu proxy.php
         const respuestaTexto = data.reply || "Interferencia detectada en el enlace neuronal.";
-        
+
         elements.chatDisplay.innerHTML += `<div class="chat-msg ai-msg"><b>IASTRONAUTA:</b> ${respuestaTexto}</div>`;
         elements.chatDisplay.scrollTop = elements.chatDisplay.scrollHeight;
-        
+
         await speak(respuestaTexto);
-        
+
         historialDocumental.push({ role: "user", content: question });
         historialDocumental.push({ role: "assistant", content: respuestaTexto });
 
