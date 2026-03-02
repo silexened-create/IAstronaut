@@ -180,7 +180,7 @@
       camera.position.set(0, 10, 50);
 
       const loader = new FBXLoader();
-      loader.load('Nadando.fbx', (obj) => {
+      loader.load('models/Nadando.fbx', (obj) => {
         // Ajuste automático de escala y MATERIALES
         obj.traverse(child => {
           if (child.isMesh) {
