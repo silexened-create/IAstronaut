@@ -1,17 +1,15 @@
 <?php
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
-    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-    header("Access-Control-Allow-Credentials: true");
-    header("HTTP/1.1 200 OK");
+// 1. Configuración de cabeceras estilo Don Quijote (Máxima compatibilidad)
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+// 2. Respuesta inmediata para el Preflight (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-header("Access-Control-Allow-Origin: https://i-astronaut.vercel.app");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-header("Access-Control-Allow-Credentials: true");
+// 3. Asegurar que la respuesta sea JSON
 header("Content-Type: application/json; charset=utf-8");
 
 /**
@@ -24,7 +22,7 @@ if (!$apiKey) {
     exit;
 }
 
-// 2. RECIBIR TELEMETRÍA Y OBJETIVO DEL FRONTEND
+// 4. RECIBIR TELEMETRÍA
 $input = json_decode(file_get_contents("php://input"), true);
 
 if (!$input || !isset($input['image'])) {
@@ -32,8 +30,15 @@ if (!$input || !isset($input['image'])) {
     exit;
 }
 
-// Capturamos el objetivo dinámico enviado por el JS (ojos, boca o gorro)
+// Limpieza de la cadena base64 (aseguramos que no lleve el prefijo si ya viene del JS)
+$image_data = $input['image'];
+if (strpos($image_data, 'data:image') === 0) {
+    $image_data = substr($image_data, strpos($image_data, ',') + 1);
+}
+
 $objetivo_mision = $input['objetivo'] ?? "Detectar si el usuario tiene los ojos abiertos o cerrados.";
+
+// ... (Resto de tu lógica de $system_prompt, $payload y curl)
 $image_base64 = str_replace('data:image/jpeg;base64,', '', $input['image']);
 
 // 3. PREPARAR EL PROMPT DE SISTEMA
