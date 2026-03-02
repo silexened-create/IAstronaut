@@ -181,7 +181,7 @@ async function captureFrame() {
 
 async function transmitToCommand(imageData) {
     try {
-        const BACKEND_URL = "http://iastronaut-api.ct.ws"; 
+        const BACKEND_URL = "https://iastronaut-api.ct.ws"; 
         const response = await fetch(`${BACKEND_URL}/api/vision.php`, {
             method: 'POST',
             mode: 'cors', // <--- AÑADE ESTO
@@ -234,3 +234,4 @@ if (elements.btnScan) {
     elements.btnScan.addEventListener('click', startScanProtocol);
 
 }
+
