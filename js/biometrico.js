@@ -12,6 +12,8 @@ const config = {
     frameRate: 30
 };
 
+const BASE_URL = "https://iastronaut.onrender.com";
+
 const elements = {
     video: document.getElementById('webcam'),
     overlay: document.getElementById('overlay'),
@@ -181,7 +183,7 @@ async function captureFrame() {
 
 async function transmitToCommand(imageData) {
     try {
-        const BASE_URL = "https://iastronaut-api.onrender.com";
+        console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
         const response = await fetch(`${BASE_URL}/vision.php`, {
             method: 'POST',
             mode: 'cors', // <--- AÑADE ESTO
