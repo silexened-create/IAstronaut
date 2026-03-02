@@ -1,18 +1,25 @@
 <?php
-// Evitar que cualquier error previo rompa las cabeceras
+// Evitar que cualquier error previo ensucie la salida
 ob_start();
 
 $allowed_origin = "https://i-astronaut.vercel.app";
 
-header("Access-Control-Allow-Origin: $allowed_origin");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-header("Access-Control-Allow-Credentials: true");
+// Solo enviamos la cabecera si no ha sido enviada ya por Apache/htaccess
+if (!headers_sent()) {
+    header("Access-Control-Allow-Origin: $allowed_origin");
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    header("Access-Control-Allow-Credentials: true");
+}
 
-// Responder al preflight (OPTIONS) antes de cualquier otra cosa
+// Responder al preflight (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+
+// Limpiar cualquier salida accidental y asegurar JSON
+header("Content-Type: application/json; charset=utf-8");
 }
 /* ============================================================
     CARGAR API KEY (CONFIGURACIÓN PARA RENDER.COM)
