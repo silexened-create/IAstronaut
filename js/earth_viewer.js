@@ -250,9 +250,32 @@ function updateSunPosition() {
 }
 
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    camera.aspect = width / height;
+
+    if (width < 900) {
+        // En móviles y tablets pequeñas
+        // 1. Zoom: 320 es un buen equilibrio para que la Tierra se vea grande
+        camera.position.set(0, 0, 350);
+
+        // 2. Desfase: Movemos la "película" de la cámara hacia arriba un 30% 
+        // Esto empuja el objeto (la Tierra) hacia ABAJO visualmente.
+        const yOffset = -height * 0.40;
+        camera.setViewOffset(width, height, 0, yOffset, width, height);
+
+        // 3. Target: Hacemos que la cámara apunte un poco hacia abajo del centro real
+        if (controls) controls.target.set(0, -50, 0);
+    } else {
+        // En Desktop: Limpiamos cualquier desfase para que vuelva al centro
+        camera.clearViewOffset();
+        camera.position.set(0, 0, 450);
+        if (controls) controls.target.set(0, 0, 0);
+    }
+
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
 }
 
 function animate() {

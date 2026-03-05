@@ -12,7 +12,9 @@ const elements = {
     tituloCap: document.getElementById('titulo-capitulo'),
     chatDisplay: document.getElementById('chat-ia'),
     preguntaInput: document.getElementById('pregunta-input'),
-    menuPlanetas: document.getElementById('menu-planetas')
+    menuPlanetas: document.getElementById('menu-planetas'),
+    hamburger: document.getElementById('hamburger-menu'),
+    indiceContainer: document.querySelector('.indice-navegacion')
 };
 
 // --- ESTADO GLOBAL ---
@@ -62,7 +64,17 @@ async function loadMissionLog() {
             btn.style.width = '100%';
             btn.style.marginBottom = '5px';
             btn.innerHTML = `🚀 ${cap.titulo}`;
-            btn.onclick = () => loadChapter(index);
+
+            // Use touchstart for mobile, click for desktop
+            const interactionEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
+            btn.addEventListener(interactionEvent, (e) => {
+                loadChapter(index);
+                if (window.innerWidth <= 768) {
+                    elements.indiceContainer.classList.remove('active');
+                    elements.hamburger.querySelector('span').innerText = '☰';
+                }
+            });
+
             elements.menuPlanetas.appendChild(btn);
 
             // Inyectar Spans de Transcripción (Agrupados por capítulo)
@@ -86,6 +98,7 @@ async function loadMissionLog() {
 
         injectUtilityButtons();
         initSyncEngine();
+        setupMobileMenu();
 
         // Cargar primer capítulo por defecto sin reproducir
         loadChapter(0, false);
@@ -93,6 +106,27 @@ async function loadMissionLog() {
     } catch (err) {
         console.error("❌ [CRÍTICO] Datos de Misión Inaccesibles:", err);
     }
+}
+
+function setupMobileMenu() {
+    if (!elements.hamburger) return;
+
+    elements.hamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.indiceContainer.classList.toggle('active');
+        elements.hamburger.querySelector('span').innerText =
+            elements.indiceContainer.classList.contains('active') ? '✖' : '☰';
+    });
+
+    // Close on click outside
+    document.addEventListener('touchstart', (e) => {
+        if (elements.indiceContainer.classList.contains('active') &&
+            !elements.indiceContainer.contains(e.target) &&
+            !elements.hamburger.contains(e.target)) {
+            elements.indiceContainer.classList.remove('active');
+            elements.hamburger.querySelector('span').innerText = '☰';
+        }
+    }, { passive: true });
 }
 
 /**
