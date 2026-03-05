@@ -23,56 +23,168 @@ body {
     /* Avoid page scroll, panels handle their own */
 }
 
-@media (max-width: 1400px) {
-    .dashboard {
-        grid-template-columns: 240px 1fr 320px;
-    }
 
-    .lectura-espacial {
-        grid-column: span 3;
-        order: 10;
-        max-height: none !important;
-    }
+.hamburger-btn {
+    display: none;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 768px) {
     .dashboard {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+        padding: 0;
+        gap: 0;
+        overflow-y: hidden;
+        /* Main dashboard fixed height, panels scroll */
+        height: 100vh;
     }
 
     .indice-navegacion {
-        grid-column: span 2;
-        height: auto !important;
+        position: fixed;
+        top: 0;
+        left: -100%;
+        /* Drawer from left */
+        width: 85% !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        z-index: 9999;
+        background: rgba(8, 12, 24, 0.95);
+        backdrop-filter: blur(10px);
+        transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 0 20px 20px 0;
+        padding: 80px 20px 40px;
+        border-right: 1px solid #FF6600;
+    }
+
+    .indice-navegacion.active {
+        left: 0;
     }
 
     .monitor {
-        grid-column: span 2;
+        height: 45vh;
+        border: none;
+        border-radius: 0;
+        padding: 10px;
+        background: radial-gradient(circle at center, rgba(32, 140, 255, 0.05) 0%, transparent 70%);
+        order: 1;
+        pointer-events: none;
+        /* Let canvas capture events through monitor container if necessary, but actually monitor should be none if canvas is sibling or child with auto */
+    }
+
+    #planeta-gif {
+        pointer-events: auto;
+        /* Ensure planet specifically is interactable */
+        z-index: 1;
+    }
+
+    #titulo-capitulo {
+        font-size: 0.7rem;
+        top: 70px;
+        /* Leave space for audio controls */
+        pointer-events: none;
+    }
+
+    .lectura-espacial {
+        position: absolute;
+        bottom: 10px;
+        left: 5%;
+        right: 5%;
+        width: 90%;
+        max-height: 80px;
+        background: rgba(13, 17, 23, 0.4);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(88, 166, 255, 0.2);
+        padding: 10px;
+        pointer-events: none;
+        /* CRITICAL: Must be none to interact with planet behind */
+        order: auto;
     }
 
     .monitor-comunicaciones {
-        grid-column: span 2;
-    }
-}
-
-@media (max-width: 600px) {
-    .dashboard {
-        grid-template-columns: 1fr;
-        padding: 10px;
-    }
-
-    .indice-navegacion,
-    .monitor,
-    .monitor-comunicaciones,
-    .lectura-espacial {
-        grid-column: span 1;
+        order: 2;
+        border-radius: 0;
+        border: none;
+        /* Clean edges */
+        flex: 1;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        background: rgba(5, 5, 5, 0.9);
+        padding: 0;
+        /* Removing lateral margins */
+        padding-bottom: env(safe-area-inset-bottom, 20px);
     }
 
-    .lectura-espacial {
-        padding: 20px;
+    .chat-display {
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+    }
+
+    .input-grupo {
+        width: 100%;
+        flex-direction: column;
+        /* Stacked for 100% width input */
+        padding: 15px;
+        padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+        gap: 10px;
+    }
+
+    .input-grupo input {
+        width: 100%;
+        font-size: 1rem;
+        /* Better for mobile zoom */
+    }
+
+    .input-grupo button {
+        width: 100%;
+        /* Stretch button for easy tapping */
+    }
+
+    .hamburger-btn {
+        display: flex;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 9999;
+        /* Max priority */
+        background: #FF6600;
+        /* IAstronaut Orange */
+        border: none;
+        color: white;
+        border-radius: 8px;
+        /* Square-ish modern look */
+        width: 44px;
+        /* Ergonomic touch size */
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(255, 102, 0, 0.4);
+    }
+
+    .controles {
+        position: fixed;
+        top: 20px;
+        right: 15px;
+        left: 80px;
+        /* Space for larger orange button */
+        bottom: auto;
+        width: auto;
+        background: rgba(32, 140, 255, 0.1);
+        padding: 2px 10px;
+        border-radius: 30px;
+        z-index: 2000;
+        backdrop-filter: blur(5px);
+        height: 40px;
+    }
+
+    audio {
+        height: 20px;
     }
 
     .palabra {
-        font-size: 1.2rem;
+        font-size: 0.9rem;
     }
 }
 

@@ -116,6 +116,7 @@ nav ul li a:hover {
   .dashboard {
     grid-template-columns: 1fr 1.5fr;
   }
+
   .dashboard-left {
     display: none;
   }
@@ -127,7 +128,7 @@ nav ul li a:hover {
     padding: 10px;
     gap: 15px;
   }
-  
+
   .dashboard-center {
     order: -1;
     height: 350px;
@@ -596,5 +597,114 @@ footer a {
 
   #chat-container {
     height: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    padding: 15px 10px;
+    gap: 15px;
+  }
+
+  .logo-area {
+    gap: 10px;
+  }
+
+  .logo-area img {
+    width: 35px;
+    height: 35px;
+  }
+
+  #main-title {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+  }
+
+  nav {
+    width: 100%;
+  }
+
+  nav ul {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  nav ul li a {
+    font-size: 0.7rem;
+    padding: 5px 10px;
+  }
+
+  .nav-biometria,
+  .nav-earth,
+  .nav-doc {
+    padding: 4px 10px !important;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  #chat-container {
+    height: 60vh;
+  }
+
+  .decorative-asset {
+    padding: 15px;
+  }
+
+  .decorative-asset img {
+    max-width: 80px;
+  }
+
+  footer {
+    font-size: 0.7rem;
+    padding: 10px 5px;
+  }
+}
+
+/* --- ESTO DEBE IR AL FINAL DEL ARCHIVO PARA PRIORIDAD MÁXIMA --- */
+@media (max-width: 900px) {
+
+  /* 1. Evitamos que el contenedor del modelo 3D sea desplazado */
+  .dashboard-center {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    /* Detrás de los controles */
+  }
+
+  /* 2. Compactamos los controles de la derecha (donde están los sliders) */
+  .dashboard-right {
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
+    /* Permite tocar la Tierra a través de huecos */
+    padding: 10px !important;
+    gap: 10px !important;
+  }
+
+  /* 3. Hacemos que los paneles sean transparentes y pequeños para no tapar */
+  .decorative-asset,
+  .temporal-controls {
+    pointer-events: auto;
+    /* Reactiva el tacto solo en los botones/sliders */
+    background: rgba(8, 12, 24, 0.6) !important;
+    max-width: 90%;
+    margin: 0 auto;
+    padding: 12px !important;
+  }
+
+  /* 4. El contenedor de chat no debe ocupar todo el alto */
+  #chat-container {
+    height: 45vh !important;
+    /* Reducimos altura para dejar ver la Tierra abajo */
+    margin-top: auto;
+    /* Lo empuja hacia abajo si es necesario */
   }
 }

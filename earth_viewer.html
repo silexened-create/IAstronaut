@@ -15,12 +15,6 @@
     <link rel="stylesheet" href="shared.css">
 
     <style>
-        #canvas-container {
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-        }
-
         .ui-overlay {
             position: absolute;
             inset: 0;
@@ -29,34 +23,94 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 40px;
-            overflow-y: auto;
+            padding: 20px;
         }
 
         @media (max-width: 900px) {
             .ui-overlay {
-                padding: 15px;
-                display: block;
-                /* Allow normal flow */
+                padding: 10px 15px;
             }
 
             .header {
                 flex-direction: column;
-                gap: 20px;
+                gap: 15px;
+                width: 100%;
             }
 
             .right-sidebar {
                 width: 100% !important;
+                background: transparent;
+                backdrop-filter: none;
+                border: none;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: auto;
+            }
+
+            .temporal-controls {
+                background: var(--glass-bg);
+                backdrop-filter: blur(12px);
+                border: 1px solid var(--glass-border);
+                padding: 15px;
+                border-radius: 12px;
+                order: -1;
+                margin-bottom: 0;
+                /* Ensure sliders are at the very top */
+            }
+
+            .mode-toggle {
+                display: none !important;
+                /* Remove redundancy on mobile */
+            }
+
+            .control-group {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                margin-bottom: 8px;
+                /* Reduced from 15px */
+            }
+
+            .control-header label {
+                font-size: 0.65rem !important;
+                /* Smaller label */
+            }
+
+            .control-value {
+                font-size: 0.7rem !important;
+                /* Smaller value */
+                padding: 2px 8px !important;
+            }
+
+            input[type="range"] {
+                width: 80% !important;
+                /* Reduce width */
+                height: 4px !important;
+                /* Slimmer sliders */
+            }
+
+            .info-panel {
+                display: none !important;
+                /* Hide secondary info panel */
+            }
+
+            .title-box {
+                pointer-events: auto;
             }
 
             .title-box h1 {
-                font-size: 2rem !important;
+                font-size: 1.5rem !important;
+            }
+
+            .title-box p {
+                font-size: 0.75rem;
             }
 
             .bottom-bar {
-                margin-top: 20px;
-                position: relative;
-                bottom: 0;
+                padding-bottom: 5px;
+                /* Reduced from 20px */
             }
         }
 
@@ -64,6 +118,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            width: 100%;
         }
 
         .title-box {
@@ -97,16 +152,6 @@
             width: 350px;
         }
 
-        .info-panel,
-        .temporal-controls {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--panel-radius);
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        }
-
         .control-group {
             margin-bottom: 20px;
         }
@@ -138,6 +183,10 @@
             width: 100%;
             cursor: pointer;
             accent-color: var(--button-cyan);
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
         }
 
         .mode-toggle {
@@ -262,9 +311,9 @@
                 <p>Simulación de iluminación solar en tiempo real</p>
             </div>
 
-            <div class="right-sidebar">
-                <!-- Temporal Controls first -->
-                <div class="temporal-controls">
+            <div id="controls-panel" class="right-sidebar">
+                <!-- Temporal Controls first and repositioned via CSS -->
+                <div class="temporal-controls glass-panel">
                     <div class="control-header">
                         <label>Modo de Simulación</label>
                     </div>
@@ -290,8 +339,8 @@
                     </div>
                 </div>
 
-                <!-- Info Panel under temporal controls -->
-                <div class="info-panel">
+                <!-- Info Panel hidden on mobile via CSS -->
+                <div class="info-panel glass-panel">
                     <div class="stat-item">
                         <span class="stat-label">Fecha Actual</span>
                         <span id="current-date" class="stat-value">--/--/----</span>
@@ -310,7 +359,7 @@
 
         <div class="bottom-bar">
             <div class="controls-hint">
-                Click y Arrastra para Orbitar • Scroll para Zoom • Inmersión Total
+                Orbitar • Zoom • Inmersión Total
             </div>
         </div>
     </div>

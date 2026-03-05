@@ -40,7 +40,12 @@
         <li>Mantén la calma mientras el Astronauta responde.</li>
       </ul>
       <p id="instr-start">¿Listo para la transmisión?</p>
-      <button id="btn-aceptar">INICIAR MISIÓN</button>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button id="btn-aceptar">INICIAR MISIÓN</button>
+        <button id="btn-saltar"
+          style="background:transparent; border:1px solid var(--button-cyan); color:var(--button-cyan);">SALTAR
+          INTRO</button>
+      </div>
     </div>
   </div>
 
@@ -226,6 +231,7 @@
       let height = container.clientHeight;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(width, height);
     }
 
@@ -257,10 +263,23 @@
       setTimeout(initThree, 100);
     });
 
+    document.getElementById("btn-saltar").addEventListener("click", () => {
+      sessionStorage.setItem('astronaut_mission_started', 'true');
+      const modal = document.getElementById("modal-instrucciones");
+      const main = document.getElementById("contenido-principal");
+      modal.style.transition = "opacity 0.5s ease";
+      modal.style.opacity = "0";
+      setTimeout(() => {
+        modal.style.display = "none";
+        modal.style.pointerEvents = "none";
+        main.style.display = "flex";
+        initThree();
+      }, 500);
+    });
+
     // Ejecutar verificación al cargar
     checkAutoSkip();
   </script>
 </body>
 
 </html>
-
