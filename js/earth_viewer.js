@@ -3,38 +3,50 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 /**
- * IAstronaut - Earth Viewer VR Optimized
- * Desarrollado para visualización WebXR y control por Raycasting/Joystick.
+ * IAstronaut - Earth Viewer: High-Precision Astronomy Teaching Tool
+ * 
+ * Hierarchy:
+ * scene -> vrCameraRig -> camera (zoom via position.z)
+ * scene -> earthAnchor -> earthGroup (axial tilt 23.44°) -> rotationGroup (localtime Y-rot)
+ * 
+ * Master VR Controls:
+ * - Left Joystick: MASTER DE TIEMPO (X: Hora, Y: Día)
+ * - Right Joystick: EXPLORACIÓN ESPACIAL (Órbita del usuario)
+ * - Triggers: ZOOM (Derecho: Acercar, Izquierdo: Alejar)
  */
 
-// Configuration
+// ── CONSTANTS ──
+const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
+const STAR_COUNT = 5000;
+const CELESTIAL_R = 15000;
 const TEXTURES = {
     earth: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
     normal: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg',
     specular: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg',
-    clouds: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png',
-    stars: 'https://threejs.org/examples/textures/lensflare/lensflare0_alpha.png'
+    clouds: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'
 };
 
+// ── GLOBALS ──
 let scene, camera, renderer, controls;
-let earthGroup, controller1, controller2;
+let vrCameraRig, controller1, controller2;
+let earthAnchor, earthGroup, rotationGroup;
 let earth, clouds, sunLight, starField;
-let clock = new THREE.Clock();
+let vrHUD;
 
-// Raycasting & Dragging State
-const raycaster = new THREE.Raycaster();
-let isDragging = false;
-let activeController = null;
-const lastControllerQuaternion = new THREE.Quaternion();
+// ── STATE ──
+let isLive = true;
+let manualDay = 81; // Vernal Equinox
+let manualHour = 12;
+let solarDeclination = 0;
+let hudDirty = true;
+let isInVR = false;
 
-// UI References
+// ── DOM REFERENCES ──
 const container = document.getElementById('canvas-container');
 const loadingScreen = document.getElementById('loading-screen');
 const uiDate = document.getElementById('current-date');
 const uiTime = document.getElementById('current-time');
 const uiSunCoords = document.getElementById('sun-coords');
-
-// Temporal Control UI
 const liveBtn = document.getElementById('live-mode');
 const manualBtn = document.getElementById('manual-mode');
 const daySlider = document.getElementById('day-range');
@@ -42,385 +54,384 @@ const hourSlider = document.getElementById('hour-range');
 const viewDayText = document.getElementById('view-day');
 const viewHourText = document.getElementById('view-hour');
 
-let isLive = true;
-let manualDay = 81;
-let manualHour = 12;
-
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
 function init() {
-    // 1. Scene Setup
+    if (!container) return;
+
+    // 1. Scene
     scene = new THREE.Scene();
 
-    // 2. Camera Setup
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 15000);
-    camera.position.set(0, 0, 450);
+    // 2. Camera Setup (Rig > Camera)
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50000);
+    camera.position.set(0, 0, 500);
 
-    // 3. Renderer Setup
+    // 3. VR Rig (Permanent Camera Parent)
+    vrCameraRig = new THREE.Group();
+    vrCameraRig.add(camera);
+    scene.add(vrCameraRig);
+
+    // 4. Renderer Setup
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.toneMapping = THREE.ReinhardToneMapping;
-    renderer.xr.enabled = true; // WebXR Enabled
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor'); 
     container.appendChild(renderer.domElement);
 
-    // VR Button Setup
-    const vrButton = VRButton.createButton(renderer);
-    vrButton.style.position = 'fixed';
-    vrButton.style.top = '20px';
-    vrButton.style.right = '20px';
-    vrButton.style.bottom = 'auto';
-    vrButton.style.left = 'auto';
-    vrButton.style.zIndex = '9999';
-    vrButton.style.background = 'rgba(8, 12, 24, 0.8)';
-    vrButton.style.border = '1px solid #3cefff';
-    vrButton.style.color = '#3cefff';
-    vrButton.style.fontFamily = "'Orbitron', sans-serif";
-    vrButton.style.padding = '12px 20px';
-    vrButton.style.borderRadius = '8px';
-    vrButton.style.boxShadow = '0 0 15px rgba(60, 239, 255, 0.3)';
-    document.body.appendChild(vrButton);
+    // VR Button
+    const vrBtn = VRButton.createButton(renderer);
+    vrBtn.style.background = 'rgba(8,12,32,0.9)';
+    vrBtn.style.border = '2px solid #00ffff';
+    vrBtn.style.color = '#00ffff';
+    document.body.appendChild(vrBtn);
 
-    // 4. VR Controllers & Raycasting
-    setupControllers();
+    // 5. XR Session Handlers
+    renderer.xr.addEventListener('sessionstart', () => {
+        isInVR = true;
+        vrCameraRig.position.set(0, 0, 0);
+        vrCameraRig.rotation.set(0, 0, 0);
+        earthAnchor.position.set(0, 1.6, -2.5);
+        earthAnchor.scale.set(0.01, 0.01, 0.01);
+        
+        if (controls) controls.enabled = false;
+        if (vrHUD) vrHUD.visible = true;
+    });
+    renderer.xr.addEventListener('sessionend', () => {
+        isInVR = false;
+        earthAnchor.position.set(0, 0, 0);
+        earthAnchor.scale.set(1, 1, 1);
+        camera.lookAt(0, 0, 0);
+        if (controls) {
+            controls.enabled = true;
+            controls.update();
+        }
+        if (vrHUD) vrHUD.visible = false;
+    });
 
-    // 5. OrbitControls (Hybrid Compatibility)
+    // 6. Controllers & HUD
+    setupVRControllers();
+
+    // 7. OrbitControls (Desktop)
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.minDistance = 200;
-    controls.maxDistance = 1000;
+    controls.minDistance = 150;
+    controls.maxDistance = 5000;
 
-    // 6. Earth Group & Lighting
+    // 8. Earth Hierarchy (Precision Science)
+    earthAnchor = new THREE.Group();
+    scene.add(earthAnchor);
+
     earthGroup = new THREE.Group();
-    scene.add(earthGroup);
+    earthGroup.rotation.z = AXIAL_TILT; // Permanent Axial Tilt
+    earthAnchor.add(earthGroup);
 
-    const ambientLight = new THREE.AmbientLight(0x111133, 0.6);
-    scene.add(ambientLight);
-
-    sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
-    scene.add(sunLight);
-    scene.add(sunLight.target); // Needed for pointing in VR workspace
+    rotationGroup = new THREE.Group(); // Handles Local Time Rotation
+    earthGroup.add(rotationGroup);
 
     createEarth();
     createStars();
+    createCelestialGuides();
 
-    // 7. Event Listeners
-    window.addEventListener('resize', onWindowResize);
-    setupTemporalListeners();
+    // 9. Lighting
+    scene.add(new THREE.AmbientLight(0x445577, 1.0));
+    sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    scene.add(sunLight);
+    scene.add(sunLight.target);
 
-    // Set initial date state
+    // 10. Start
+    window.addEventListener('resize', onResize);
+    setupDOMListeners();
+
+    // Initial Sync
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
-    const currentDay = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-    daySlider.value = currentDay;
-    hourSlider.value = now.getUTCHours() + now.getUTCMinutes() / 60;
-    manualDay = currentDay;
-    manualHour = parseFloat(hourSlider.value);
+    manualDay = Math.floor((now - start) / 86400000);
+    manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+    hudDirty = true;
 
-    // 8. Start Animation Loop
     renderer.setAnimationLoop(render);
 
-    // Clean loading
-    setTimeout(() => {
-        if (loadingScreen) {
+    if (loadingScreen) {
+        setTimeout(() => {
             loadingScreen.style.opacity = '0';
             setTimeout(() => loadingScreen.classList.add('hidden'), 1000);
-        }
-    }, 2000);
-}
-
-function setupControllers() {
-    // Controller 1
-    controller1 = renderer.xr.getController(0);
-    controller1.addEventListener('selectstart', onSelectStart);
-    controller1.addEventListener('selectend', onSelectEnd);
-    scene.add(controller1);
-
-    // Controller 2
-    controller2 = renderer.xr.getController(1);
-    controller2.addEventListener('selectstart', onSelectStart);
-    controller2.addEventListener('selectend', onSelectEnd);
-    scene.add(controller2);
-
-    // Neon Cyan Rays
-    const rayGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -1)
-    ]);
-    const rayMaterial = new THREE.LineBasicMaterial({
-        color: 0x3cefff,
-        transparent: true,
-        opacity: 0.8
-    });
-
-    const line1 = new THREE.Line(rayGeometry, rayMaterial);
-    line1.scale.z = 100;
-    controller1.add(line1);
-
-    const line2 = new THREE.Line(rayGeometry, rayMaterial);
-    line2.scale.z = 100;
-    controller2.add(line2);
-}
-
-function onSelectStart(event) {
-    const controller = event.target;
-
-    // Check for intersection with Earth using Raycasting
-    const tempMatrix = new THREE.Matrix4();
-    tempMatrix.identity().extractRotation(controller.matrixWorld);
-
-    raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
-    // Force update matrices before raycasting to ensure accuracy in moved VR workspace
-    scene.updateMatrixWorld(true);
-
-    const intersects = raycaster.intersectObject(earth, true);
-    if (intersects.length > 0) {
-        isDragging = true;
-        activeController = controller;
-        lastControllerQuaternion.copy(controller.quaternion);
+        }, 1500);
     }
 }
 
-function onSelectEnd() {
-    isDragging = false;
-    activeController = null;
+// ════════════════════════════════════════
+//  SCENE OBJECTS
+// ════════════════════════════════════════
+function createEarth() {
+    const loader = new THREE.TextureLoader();
+    earth = new THREE.Mesh(
+        new THREE.SphereGeometry(100, 64, 64),
+        new THREE.MeshPhongMaterial({
+            map: loader.load(TEXTURES.earth),
+            normalMap: loader.load(TEXTURES.normal),
+            normalScale: new THREE.Vector2(0.85, 0.85),
+            specularMap: loader.load(TEXTURES.specular),
+            specular: new THREE.Color('grey'),
+            shininess: 5
+        })
+    );
+    rotationGroup.add(earth);
+
+    clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(101.5, 48, 48),
+        new THREE.MeshPhongMaterial({
+            map: loader.load(TEXTURES.clouds),
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false
+        })
+    );
+    rotationGroup.add(clouds);
 }
 
-function updateDragInteraction() {
-    if (!isDragging || !activeController) return;
-
-    // Map controller rotation delta to Earth rotation
-    const currentQuaternion = activeController.quaternion;
-    const deltaQuaternion = currentQuaternion.clone().multiply(lastControllerQuaternion.clone().invert());
-
-    earthGroup.quaternion.premultiply(deltaQuaternion);
-    lastControllerQuaternion.copy(currentQuaternion);
+function createStars() {
+    const vertices = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        vertices.push(
+            CELESTIAL_R * Math.sin(phi) * Math.cos(theta),
+            CELESTIAL_R * Math.sin(phi) * Math.sin(theta),
+            CELESTIAL_R * Math.cos(phi)
+        );
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    starField = new THREE.Points(geometry, new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 1.5,
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false
+    }));
+    scene.add(starField);
 }
 
+function createCelestialGuides() {
+    // Hidden or removed debug guides as requested
+}
+
+// ════════════════════════════════════════
+//  VR HUD & CONTROLLERS
+// ════════════════════════════════════════
+function setupVRControllers() {
+    controller1 = renderer.xr.getController(0);
+    scene.add(controller1);
+
+    controller2 = renderer.xr.getController(1);
+    scene.add(controller2);
+
+    const w = 512, h = 420;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    const tex = new THREE.CanvasTexture(canvas);
+    vrHUD = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.32, 0.26),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide })
+    );
+    vrHUD.position.set(0, 0.18, -0.2);
+    vrHUD.rotation.x = -Math.PI / 4.5;
+    vrHUD.visible = false;
+    controller1.add(vrHUD);
+
+    vrHUD.userData.update = () => {
+        ctx.fillStyle = 'rgba(8, 12, 32, 0.96)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 34px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('ESTACIÓN IASTRONAUT VR', w / 2, 60);
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '26px sans-serif';
+        ctx.fillText(`Dia del Año: ${Math.floor(manualDay)}`, 40, 115);
+        ctx.fillText(`Hora Local: ${Math.floor(manualHour)}:${Math.floor((manualHour % 1) * 60).toString().padStart(2, '0')} UTC`, 40, 155);
+        ctx.fillText(`Lat. Sub-Solar: ${solarDeclination.toFixed(2)}°`, 40, 195);
+
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText('MANUAL DE VUELO:', 40, 255);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px sans-serif';
+        ctx.fillText('• Mano Izq: Viaje en el Tiempo', 40, 300);
+        ctx.fillText('• Mano Der: Exploración Espacial', 40, 340);
+        ctx.fillText('• Gatillos: Zoom +/-', 40, 380);
+
+        tex.needsUpdate = true;
+    };
+}
+
+// ════════════════════════════════════════
+//  VR INPUT HANDLING
+// ════════════════════════════════════════
 function handleVRInput() {
     const session = renderer.xr.getSession();
     if (!session) return;
 
     for (const source of session.inputSources) {
-        if (source && source.gamepad) {
-            const axes = source.gamepad.axes;
+        if (!source.gamepad) continue;
+        const ax = source.gamepad.axes;
+        const bt = source.gamepad.buttons;
 
-            // Map Joystick: axes[2]/[3] (Standard Right) or axes[0]/[1] (Standard Left)
-            let h = 0;
-            let v = 0;
-
-            if (axes.length >= 4) {
-                h = Math.abs(axes[2]) > 0.1 ? axes[2] : (Math.abs(axes[0]) > 0.1 ? axes[0] : 0);
-                v = Math.abs(axes[3]) > 0.1 ? axes[3] : (Math.abs(axes[1]) > 0.1 ? axes[1] : 0);
-            } else if (axes.length >= 2) {
-                h = axes[0];
-                v = axes[1];
+        // ── MANO IZQUIERDA: Master de Tiempo ──
+        if (source.handedness === 'left') {
+            // X: Hora (Rotación diaria)
+            if (Math.abs(ax[2]) > 0.1) {
+                manualHour = (manualHour + ax[2] * 0.2 + 24) % 24;
+                isLive = false;
+                hudDirty = true;
             }
-
-            if (Math.abs(h) > 0.1) {
-                earthGroup.rotation.y += h * 0.04;
+            // Y: Día (Ciclo estacional)
+            if (Math.abs(ax[3]) > 0.1) {
+                manualDay = THREE.MathUtils.clamp(manualDay + ax[3] * 0.4, 1, 365);
+                isLive = false;
+                hudDirty = true;
             }
-            if (Math.abs(v) > 0.1) {
-                earthGroup.rotation.x += v * 0.04;
+            // Trigger: Zoom Out (Alejar)
+            if (bt[0] && bt[0].pressed) {
+                camera.position.z = THREE.MathUtils.clamp(camera.position.z + 10, 150, 5000);
+            }
+        }
+
+        // ── MANO DERECHA: Exploración Espacial ──
+        if (source.handedness === 'right') {
+            // Joystick controla órbita del usuario
+            if (Math.abs(ax[2]) > 0.1) vrCameraRig.rotation.y -= ax[2] * 0.04;
+            if (Math.abs(ax[3]) > 0.1) {
+                vrCameraRig.rotation.x = THREE.MathUtils.clamp(
+                    vrCameraRig.rotation.x - ax[3] * 0.04, 
+                    -Math.PI / 2.1, 
+                    Math.PI / 2.1
+                );
+            }
+            // Trigger: Zoom In (Acercar)
+            if (bt[0] && bt[0].pressed) {
+                camera.position.z = THREE.MathUtils.clamp(camera.position.z - 10, 150, 5000);
             }
         }
     }
 }
 
+// ════════════════════════════════════════
+//  RENDER LOOP
+// ════════════════════════════════════════
 function render() {
-    const isPresenting = renderer.xr.isPresenting;
-
-    if (isPresenting) {
-        // VR Workspace: Earth 2.5m away, Eye Level (1.6m height)
-        earthGroup.position.set(0, 1.6, -2.5);
-        earthGroup.scale.set(0.012, 0.012, 0.012); // Scaled to ~2.4m diameter globe
-
-        handleVRInput();
-        updateDragInteraction();
-
-        // Redirect Sun target to moved Earth in VR
-        sunLight.target.position.set(0, 1.6, -2.5);
-    } else {
-        // Desktop / Hybrid Mode
-        earthGroup.position.set(0, 0, 0);
-        earthGroup.scale.set(1, 1, 1);
-        if (controls) controls.update();
-
-        // Sun target at origin
-        sunLight.target.position.set(0, 0, 0);
+    if (isLive) {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const d = Math.floor((now - start) / 86400000);
+        const h = now.getUTCHours() + now.getUTCMinutes() / 60;
+        if (d !== Math.floor(manualDay) || Math.abs(h - manualHour) > 0.01) {
+            manualDay = d;
+            manualHour = h;
+            hudDirty = true;
+        }
     }
 
-    sunLight.target.updateMatrixWorld();
+    // Daily Rotation: Local Y within the tilted structure
+    rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
 
-    if (clouds) clouds.rotation.y += 0.0002;
-    updateSunPosition();
+    if (isInVR) {
+        handleVRInput();
+    } else {
+        if (controls) controls.update();
+    }
+
+    // Scientific Logic Updates
+    if (hudDirty) {
+        updateSunDynamics();
+        syncDOM();
+        if (vrHUD && vrHUD.userData.update) vrHUD.userData.update();
+        hudDirty = false;
+    }
+
+    if (clouds) clouds.rotation.y += 0.0001;
+
+    // Light Alignment: Target follows Earth
+    if (sunLight) {
+        sunLight.target.position.copy(earthAnchor.position);
+        sunLight.target.updateMatrixWorld();
+    }
+
     renderer.render(scene, camera);
 }
 
-function createEarth() {
-    const loader = new THREE.TextureLoader();
-    const geometry = new THREE.SphereGeometry(100, 64, 64);
-    const material = new THREE.MeshPhongMaterial({
-        map: loader.load(TEXTURES.earth),
-        normalMap: loader.load(TEXTURES.normal),
-        normalScale: new THREE.Vector2(0.85, 0.85),
-        specularMap: loader.load(TEXTURES.specular),
-        specular: new THREE.Color('grey'),
-        shininess: 5
-    });
+// ════════════════════════════════════════
+//  DYNAMICS & SYNC
+// ════════════════════════════════════════
+function updateSunDynamics() {
+    // Solar Declination: 23.44 * sin((2π/365) * (day - 81))
+    solarDeclination = 23.44 * Math.sin((2 * Math.PI / 365) * (manualDay - 81));
+    const decRad = THREE.MathUtils.degToRad(solarDeclination);
 
-    earth = new THREE.Mesh(geometry, material);
-    earthGroup.add(earth);
+    // Position sunLight relative to the tilted earth
+    const R = 3000;
+    const sy = R * Math.sin(decRad);
+    const sz = R * Math.cos(decRad);
 
-    // Clouds
-    const cloudGeometry = new THREE.SphereGeometry(101, 64, 64);
-    const cloudMaterial = new THREE.MeshPhongMaterial({
-        map: loader.load(TEXTURES.clouds),
-        transparent: true,
-        opacity: 0.4
-    });
-
-    clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
-    earthGroup.add(clouds);
-
-    // Glow Effect
-    const glowTexture = loader.load(TEXTURES.stars);
-    const glowMaterial = new THREE.SpriteMaterial({
-        map: glowTexture,
-        color: 0x58a6ff,
-        transparent: true,
-        opacity: 0.4,
-        blending: THREE.AdditiveBlending
-    });
-    const glow = new THREE.Sprite(glowMaterial);
-    glow.scale.set(350, 350, 1);
-    earthGroup.add(glow);
-}
-
-function createStars() {
-    const starGeometry = new THREE.BufferGeometry();
-    const starMaterial = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.9,
-        transparent: true,
-        opacity: 0.8
-    });
-
-    const starVertices = [];
-    for (let i = 0; i < 15000; i++) {
-        const x = (Math.random() - 0.5) * 8000;
-        const y = (Math.random() - 0.5) * 8000;
-        const z = (Math.random() - 0.5) * 8000;
-        starVertices.push(x, y, z);
+    if (sunLight) {
+        // Adjust sun position and target to follow the earthAnchor
+        sunLight.position.set(earthAnchor.position.x, earthAnchor.position.y + sy, earthAnchor.position.z + sz);
+        sunLight.target.position.copy(earthAnchor.position);
+        sunLight.target.updateMatrixWorld();
     }
-
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    starField = new THREE.Points(starGeometry, starMaterial);
-    scene.add(starField);
+    if (uiSunCoords) uiSunCoords.innerText = `Decl. Solar: ${solarDeclination.toFixed(2)}°`;
 }
 
-function updateSunPosition() {
-    let dayOfYear, decimalTime;
-
-    if (isLive) {
-        const now = new Date();
-        if (uiDate) uiDate.innerText = now.toLocaleDateString();
-        if (uiTime) uiTime.innerText = now.toTimeString().split(' ')[0];
-
-        const start = new Date(now.getFullYear(), 0, 0);
-        dayOfYear = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-        decimalTime = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
-    } else {
-        dayOfYear = manualDay;
-        decimalTime = manualHour;
-
-        const date = new Date(new Date().getFullYear(), 0);
-        date.setDate(manualDay);
-        if (uiDate) uiDate.innerText = date.toLocaleDateString();
-
-        const h = Math.floor(manualHour);
-        const m = Math.floor((manualHour % 1) * 60);
-        if (uiTime) uiTime.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
-    }
-
-    // Solar calculation
-    const declination = 23.44 * Math.sin((2 * Math.PI / 365) * (dayOfYear - 81));
-    const longitude = 15 * (12 - decimalTime);
-
-    const phi = (90 - declination) * (Math.PI / 180);
-    const theta = (longitude + 180) * (Math.PI / 180);
-
-    const radius = 900;
-    const x = -radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-
-    sunLight.position.set(x, y, z);
-    if (uiSunCoords) uiSunCoords.innerText = `Lat: ${declination.toFixed(2)}° | Lon: ${longitude.toFixed(2)}°`;
-}
-
-function onWindowResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    camera.aspect = width / height;
-
-    if (width < 900) {
-        camera.position.set(0, 0, 350);
-        const yOffset = -height * 0.40;
-        camera.setViewOffset(width, height, 0, yOffset, width, height);
-        if (controls) controls.target.set(0, -50, 0);
-    } else {
-        camera.clearViewOffset();
-        camera.position.set(0, 0, 450);
-        if (controls) controls.target.set(0, 0, 0);
-    }
-
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
-}
-
-function setupTemporalListeners() {
-    if (!liveBtn) return;
-
-    liveBtn.addEventListener('click', () => {
-        isLive = true;
-        liveBtn.classList.add('active');
-        manualBtn.classList.remove('active');
-        viewDayText.innerText = "Hoy";
-        viewHourText.innerText = "Ahora";
-    });
-
-    manualBtn.addEventListener('click', () => {
-        isLive = false;
-        manualBtn.classList.add('active');
-        liveBtn.classList.remove('active');
-        updateManualLabels();
-    });
-
-    daySlider.addEventListener('input', (e) => {
-        manualDay = parseInt(e.target.value);
-        if (isLive) manualBtn.click();
-        updateManualLabels();
-    });
-
-    hourSlider.addEventListener('input', (e) => {
-        manualHour = parseFloat(e.target.value);
-        if (isLive) manualBtn.click();
-        updateManualLabels();
-    });
-}
-
-function updateManualLabels() {
-    const date = new Date(new Date().getFullYear(), 0);
-    date.setDate(manualDay);
-    viewDayText.innerText = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function syncDOM() {
+    const d = new Date(new Date().getFullYear(), 0);
+    d.setDate(Math.floor(manualDay));
+    if (uiDate) uiDate.innerText = d.toLocaleDateString();
 
     const h = Math.floor(manualHour);
     const m = Math.floor((manualHour % 1) * 60);
-    viewHourText.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} UTC`;
+    if (uiTime) uiTime.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00 UTC`;
+
+    if (daySlider) daySlider.value = manualDay;
+    if (hourSlider) hourSlider.value = manualHour;
+
+    if (viewDayText) viewDayText.innerText = isLive ? 'Hoy' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} UTC`;
+
+    if (liveBtn && manualBtn) {
+        liveBtn.classList.toggle('active', isLive);
+        manualBtn.classList.toggle('active', !isLive);
+    }
 }
 
-// Boot
+function setupDOMListeners() {
+    if (liveBtn) liveBtn.addEventListener('click', () => { isLive = true; hudDirty = true; });
+    if (manualBtn) manualBtn.addEventListener('click', () => { isLive = false; hudDirty = true; });
+    if (daySlider) daySlider.addEventListener('input', (e) => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
+    if (hourSlider) hourSlider.addEventListener('input', (e) => { manualHour = parseFloat(e.target.value); isLive = false; hudDirty = true; });
+}
+
+function onResize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    if (w < 900 && !isInVR) {
+        camera.setViewOffset(w, h, 0, -h * 0.35, w, h);
+    } else {
+        camera.clearViewOffset();
+    }
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+}
+
+// Despegue
 init();
