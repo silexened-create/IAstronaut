@@ -30,8 +30,8 @@ let vrRotateY = 0;
 
 // Constantes
 const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
-const STAR_COUNT = 15000;
-const CELESTIAL_RADIUS = 10000;
+const STAR_COUNT = 20000;
+const CELESTIAL_RADIUS = 30000; // Increased for VR stability
 
 // UI References
 const container = document.getElementById('canvas-container');
@@ -419,7 +419,18 @@ function createStars() {
         starVertices.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
     }
     starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, opacity: 0.7 })));
+    
+    const starMaterial = new THREE.PointsMaterial({ 
+        color: 0xffffff, 
+        size: 1.5, 
+        transparent: true, 
+        opacity: 0.8,
+        depthWrite: false, // Ensure stars are always in the background
+        sizeAttenuation: false // Stars don't change size with movement/zoom
+    });
+
+    starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
 }
 
 function createEarth() {
