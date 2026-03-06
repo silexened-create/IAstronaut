@@ -19,7 +19,7 @@ const TEXTURES = {
 // Global References
 let scene, camera, renderer, controls;
 let controller1, controller2;
-let vrCameraRig, vrUserOffset, vrInstructionsHUD; // Added vrUserOffset
+let vrCameraRig, vrUserOffset, vrInstructionsHUD, vrTelemetryHUD; // Added vrTelemetryHUD
 let earthAnchor, earthGroup, rotationGroup;
 let earth, clouds, sunLight, starField;
 
@@ -141,15 +141,20 @@ function init() {
 
 function setupVRControllers() {
     controller1 = renderer.xr.getController(0);
-    vrUserOffset.add(controller1); // Parent to Offset instead of Rig
+    vrUserOffset.add(controller1); 
     
     vrInstructionsHUD = createVRInstructions();
-    vrInstructionsHUD.position.set(0, 0.2, -0.4); // Position comfortably in front
+    vrInstructionsHUD.position.set(0, 0.2, -0.4); 
     vrInstructionsHUD.rotation.x = -Math.PI / 6;
     controller1.add(vrInstructionsHUD);
 
+    // Add Telemetry HUD to Camera so it follows the view
+    vrTelemetryHUD = createVRTelemetry();
+    vrTelemetryHUD.position.set(0, 0.5, -1.2); // Above the view center
+    camera.add(vrTelemetryHUD);
+
     controller2 = renderer.xr.getController(1);
-    vrUserOffset.add(controller2); // Parent to Offset instead of Rig
+    vrUserOffset.add(controller2); 
 }
 
 function setupXRSessionListeners() {
@@ -186,19 +191,18 @@ function createVRInstructions() {
         ctx.fillStyle = '#00ffff';
         ctx.font = 'bold 30px Orbitron, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('MODO OBSERVATORIO', canvas.width / 2, 50);
+        ctx.fillText('CONTROLES VR', canvas.width / 2, 50);
 
         ctx.textAlign = 'left';
         ctx.font = '22px Orbitron, sans-serif';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('• Joy Izq: Tiempo / Estaciones', 40, 100);
+        ctx.fillText('• Joy Izq: Tiempo (X) / Zoom (Y)', 40, 100);
         ctx.fillText('• Joy Der: Órbita / Vuelo Polar', 40, 140);
-        ctx.fillText('• Gatillos: Zoom +/-', 40, 180);
+        ctx.fillText('• Gatillos: Ajuste Preciso Zoom', 40, 180);
 
-        ctx.font = '18px Orbitron, sans-serif';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
-        ctx.fillText(`Declinación: ${solarDeclination.toFixed(2)}°`, 40, 240);
-        ctx.fillText(`H: ${manualHour.toFixed(2)} | D: ${Math.floor(manualDay)}`, 40, 275);
+        ctx.font = '16px Orbitron, sans-serif';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+        ctx.fillText('Mira tu mano para estas instrucciones', 40, 250);
         
         hudTexture.needsUpdate = true;
     }
@@ -211,6 +215,50 @@ function createVRInstructions() {
 
     hudMesh.userData.update = update;
     return hudMesh;
+}
+
+function createVRTelemetry() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Semi-transparent glass background
+        ctx.fillStyle = 'rgba(10, 20, 40, 0.7)';
+        ctx.roundRect(10, 10, canvas.width - 20, canvas.height - 20, 20);
+        ctx.fill();
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 24px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        
+        const day = Math.floor(manualDay);
+        const h = Math.floor(manualHour);
+        const m = Math.floor((manualHour % 1) * 60);
+        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} UTC`;
+
+        ctx.fillText(`TELEMETRÍA: DÍA ${day} | ${timeStr}`, canvas.width / 2, 75);
+        
+        telemetryTexture.needsUpdate = true;
+    }
+
+    const telemetryTexture = new THREE.CanvasTexture(canvas);
+    const telemetryMaterial = new THREE.SpriteMaterial({ 
+        map: telemetryTexture, 
+        transparent: true,
+        opacity: 0.9 
+    });
+    const telemetrySprite = new THREE.Sprite(telemetryMaterial);
+    telemetrySprite.scale.set(0.6, 0.15, 1);
+
+    telemetrySprite.userData.update = update;
+    return telemetrySprite;
 }
 
 function handleVRInput() {
@@ -234,24 +282,30 @@ function handleVRInput() {
             // Zoom In (Gatillo)
             if (buttons[0].pressed) vrZoomValue = Math.max(150, vrZoomValue - 5);
         }
-        // MANO IZQUIERDA: Control del Tiempo
+        // MANO IZQUIERDA: Control de Tiempo y Zoom
         else if (hand === 'left') {
             let changed = false;
+            // X Axis: Hora
             if (Math.abs(axes[2]) > 0.1) {
                 manualHour = (manualHour + axes[2] * 0.3) % 24;
                 if (manualHour < 0) manualHour += 24;
                 changed = true;
             }
+            // Y Axis: Zoom
             if (Math.abs(axes[3]) > 0.1) {
-                manualDay = Math.max(1, Math.min(365, manualDay + axes[3] * 0.5));
-                changed = true;
+                vrZoomValue = Math.max(150, Math.min(2500, vrZoomValue + axes[3] * 15));
             }
+
             if (changed) {
                 isLive = false;
                 syncVRToDOM();
             }
-            // Zoom Out (Gatillo)
+            // Triggers: Zoom Fino (Mano Izq = Out, Mano Der = In)
             if (buttons[0].pressed) vrZoomValue = Math.min(2500, vrZoomValue + 5);
+        }
+        
+        if (hand === 'right' && buttons[0].pressed) {
+            vrZoomValue = Math.max(150, vrZoomValue - 5);
         }
     }
 }
@@ -293,6 +347,9 @@ function render() {
         // No forzamos cámara.position ni lookAt en XR para dejar que el tracking funcione
         if (vrInstructionsHUD && vrInstructionsHUD.userData.update) {
             vrInstructionsHUD.userData.update();
+        }
+        if (vrTelemetryHUD && vrTelemetryHUD.userData.update) {
+            vrTelemetryHUD.userData.update();
         }
     } else {
         // En escritorio, reseteamos el rig para que OrbitControls no tenga conflictos
