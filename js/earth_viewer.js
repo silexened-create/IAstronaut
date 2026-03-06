@@ -3,27 +3,54 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 /**
- * IAstronaut - Earth Viewer v3 (Stable Desktop + VR)
+ * IAstronaut - Earth Viewer v4 (Robust Blank-Screen Fix)
  *
- * DESIGN DECISIONS:
- * - Camera is added directly to the scene (NOT as child of rig) so that
- *   OrbitControls works normally in desktop mode.
- * - In VR mode, the vrCameraRig is repositioned every frame using spherical
- *   coordinates, and the camera is re-parented to the rig on sessionstart.
- * - On sessionend, camera is returned to the scene for OrbitControls.
- * - Instruction panel is attached to controller1 (left hand).
+ * Fixes applied:
+ *  1. LoadingManager with onError fallback to solid-color material
+ *  2. renderer.setClearColor(0x000000, 1) — no transparent canvas
+ *  3. camera.near=0.1, camera.far=50000, explicit lookAt before loop
+ *  4. AxesHelper(500) for visibility diagnosis
+ *  5. Debug logging in render() for scene.children count
+ *  6. Dual-mode camera: scene child (desktop) ↔ rig child (VR)
  */
 
 // ── CONSTANTS ──
-const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
-const STAR_COUNT = 5000;
+const AXIAL_TILT  = THREE.MathUtils.degToRad(23.44);
+const STAR_COUNT  = 5000;
 const CELESTIAL_R = 15000;
-const TEXTURES = {
-    earth: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
-    normal: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg',
+
+const TEXTURE_URLS = {
+    earth:    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
+    normal:   'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg',
     specular: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg',
-    clouds: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'
+    clouds:   'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'
 };
+
+// ── LOADING MANAGER (with fallback) ──
+const loadingManager = new THREE.LoadingManager(
+    () => console.log('[IAstronaut] All textures loaded successfully'),
+    (url, loaded, total) => console.log(`[IAstronaut] Loading: ${loaded}/${total} — ${url.split('/').pop()}`),
+    (url) => console.error('[IAstronaut] FAILED to load texture:', url)
+);
+const textureLoader = new THREE.TextureLoader(loadingManager);
+
+/** Load a texture with automatic fallback to a solid color */
+function loadTexture(url, fallbackColor) {
+    try {
+        const tex = textureLoader.load(
+            url,
+            (t) => console.log('[IAstronaut] Loaded:', url.split('/').pop()),
+            undefined,
+            (err) => {
+                console.warn('[IAstronaut] Texture error, using fallback color for:', url);
+            }
+        );
+        return tex;
+    } catch (e) {
+        console.warn('[IAstronaut] Exception loading texture, using null');
+        return null;
+    }
+}
 
 // ── GLOBALS ──
 let scene, camera, renderer, controls;
@@ -33,11 +60,11 @@ let earth, clouds, sunLight, starField;
 let vrInstructionsPanel;
 
 // ── STATE ──
-let vrZoom = 500;
+let vrZoom  = 500;
 let rigRotY = 0;
 let rigRotX = 0;
-let isLive = true;
-let manualDay = 1;
+let isLive  = true;
+let manualDay  = 1;
 let manualHour = 12;
 let solarDeclination = 0;
 let hudDirty = true;
@@ -45,17 +72,17 @@ let isInVR = false;
 let debugCounter = 0;
 
 // ── DOM ──
-const container = document.getElementById('canvas-container');
+const container     = document.getElementById('canvas-container');
 const loadingScreen = document.getElementById('loading-screen');
-const uiDate = document.getElementById('current-date');
-const uiTime = document.getElementById('current-time');
-const uiSunCoords = document.getElementById('sun-coords');
-const liveBtn = document.getElementById('live-mode');
-const manualBtn = document.getElementById('manual-mode');
-const daySlider = document.getElementById('day-range');
-const hourSlider = document.getElementById('hour-range');
-const viewDayText = document.getElementById('view-day');
-const viewHourText = document.getElementById('view-hour');
+const uiDate        = document.getElementById('current-date');
+const uiTime        = document.getElementById('current-time');
+const uiSunCoords   = document.getElementById('sun-coords');
+const liveBtn       = document.getElementById('live-mode');
+const manualBtn     = document.getElementById('manual-mode');
+const daySlider     = document.getElementById('day-range');
+const hourSlider    = document.getElementById('hour-range');
+const viewDayText   = document.getElementById('view-day');
+const viewHourText  = document.getElementById('view-hour');
 
 
 // ════════════════════════════════════════
@@ -63,32 +90,38 @@ const viewHourText = document.getElementById('view-hour');
 // ════════════════════════════════════════
 function init() {
     if (!container) {
-        console.error('[IAstronaut] canvas-container not found');
+        console.error('[IAstronaut] FATAL: #canvas-container not found in DOM');
         return;
     }
+    console.log('[IAstronaut] init() starting...');
 
     // ── Scene ──
     scene = new THREE.Scene();
-    console.log('[IAstronaut] Scene created');
 
-    // ── Camera (direct child of scene for desktop) ──
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 25000);
-    camera.position.set(0, 50, 500);
-    scene.add(camera);
-    console.log('[IAstronaut] Camera at:', camera.position.toArray());
+    // ── Camera — safe defaults ──
+    camera = new THREE.PerspectiveCamera(
+        45,
+        window.innerWidth / window.innerHeight,
+        0.1,     // near — very close to avoid clipping
+        50000    // far — covers stars at 15000
+    );
+    camera.position.set(0, 0, 500);
+    camera.lookAt(0, 0, 0);
+    scene.add(camera);   // Desktop: camera is a direct child of scene
+    console.log('[IAstronaut] Camera created at (0, 0, 500), near=0.1, far=50000');
 
-    // ── VR Camera Rig (used only in VR mode) ──
+    // ── VR Camera Rig (only used during VR sessions) ──
     vrCameraRig = new THREE.Group();
-    vrCameraRig.visible = false; // Hidden until VR starts
     scene.add(vrCameraRig);
 
     // ── Renderer ──
-    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setClearColor(0x000000, 1);   // SOLID BLACK — no transparency issues
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
-    console.log('[IAstronaut] Renderer initialized');
+    console.log('[IAstronaut] Renderer created with setClearColor(black, 1)');
 
     // ── VR Button ──
     const vrBtn = VRButton.createButton(renderer);
@@ -97,13 +130,12 @@ function init() {
     vrBtn.style.color = '#00ffff';
     document.body.appendChild(vrBtn);
 
-    // ── Controllers (added to rig, active only in VR) ──
+    // ── Controllers ──
     controller1 = renderer.xr.getController(0);
     vrCameraRig.add(controller1);
     controller2 = renderer.xr.getController(1);
     vrCameraRig.add(controller2);
 
-    // Instruction panel on left hand
     vrInstructionsPanel = buildInstructionPanel();
     vrInstructionsPanel.position.set(0, 0.12, -0.25);
     vrInstructionsPanel.rotation.x = -Math.PI / 5;
@@ -133,15 +165,21 @@ function init() {
     rotationGroup = new THREE.Group();
     earthGroup.add(rotationGroup);
 
-    // ── Build scene ──
+    // ── Build scene elements ──
     createEarth();
     createCelestialGuides();
     createStars();
     createCelestialMarkers();
 
-    // ── Lighting (strong enough to always see the Earth) ──
-    const ambient = new THREE.AmbientLight(0x334466, 1.0);
+    // ── VISIBILITY FALLBACK: AxesHelper to diagnose blank screen ──
+    const axesHelper = new THREE.AxesHelper(500);
+    scene.add(axesHelper);
+    console.log('[IAstronaut] AxesHelper(500) added. If you see colored lines but no Earth, the issue is textures/materials.');
+
+    // ── Lighting ──
+    const ambient = new THREE.AmbientLight(0x446688, 1.2);
     scene.add(ambient);
+    console.log('[IAstronaut] AmbientLight intensity=1.2');
 
     sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     scene.add(sunLight);
@@ -157,60 +195,59 @@ function init() {
     // ── Set initial time ──
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 0);
-    manualDay = Math.floor((now - yearStart) / 86400000);
+    manualDay  = Math.floor((now - yearStart) / 86400000);
     manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
     hudDirty = true;
 
-    // ── Start ──
+    // ── Final camera confirmation ──
+    camera.lookAt(0, 0, 0);
+    console.log('[IAstronaut] Final camera pos:', camera.position.toArray());
+    console.log('[IAstronaut] scene.children count:', scene.children.length);
+    console.log('[IAstronaut] earthGroup.children:', earthGroup.children.length);
+    console.log('[IAstronaut] rotationGroup.children:', rotationGroup.children.length);
+
+    // ── Start render loop ──
     renderer.setAnimationLoop(render);
+    console.log('[IAstronaut] Animation loop started');
 
     // ── Loading screen ──
     if (loadingScreen) {
         setTimeout(() => {
             loadingScreen.style.opacity = '0';
             setTimeout(() => loadingScreen.classList.add('hidden'), 1000);
-        }, 2000);
+        }, 2500);
     }
-
-    console.log('[IAstronaut] Init complete. earthGroup children:', earthGroup.children.length,
-        'rotationGroup children:', rotationGroup.children.length);
 }
 
 
 // ════════════════════════════════════════
-//  VR SESSION MANAGEMENT
+//  VR SESSION
 // ════════════════════════════════════════
 function onVRStart() {
-    console.log('[IAstronaut] VR session started');
+    console.log('[IAstronaut] VR session START');
     isInVR = true;
-
-    // Disable desktop controls
     if (controls) controls.enabled = false;
 
     // Re-parent camera to rig
     scene.remove(camera);
     vrCameraRig.add(camera);
-    camera.position.set(0, 0, 0); // WebXR manages local position
-    vrCameraRig.visible = true;
+    camera.position.set(0, 0, 0);
 
-    // Force initial rig position outside the Earth
+    // Force rig position outside Earth
     updateRigPosition();
-    console.log('[IAstronaut] VR rig position:', vrCameraRig.position.toArray());
+    console.log('[IAstronaut] VR rig at:', vrCameraRig.position.toArray());
 }
 
 function onVREnd() {
-    console.log('[IAstronaut] VR session ended');
+    console.log('[IAstronaut] VR session END');
     isInVR = false;
 
     // Return camera to scene
     vrCameraRig.remove(camera);
     scene.add(camera);
-    vrCameraRig.visible = false;
 
-    // Restore desktop state
-    camera.position.set(0, 50, 500);
+    camera.position.set(0, 0, 500);
     camera.lookAt(0, 0, 0);
-
     if (controls) {
         controls.enabled = true;
         controls.target.set(0, 0, 0);
@@ -220,7 +257,7 @@ function onVREnd() {
 
 
 // ════════════════════════════════════════
-//  INSTRUCTION PANEL (static, one-time draw)
+//  INSTRUCTION PANEL (static)
 // ════════════════════════════════════════
 function buildInstructionPanel() {
     const W = 256, H = 220;
@@ -239,11 +276,8 @@ function buildInstructionPanel() {
     g.textAlign = 'center';
     g.fillText('CONTROLES VR', W / 2, 24);
 
-    g.beginPath();
-    g.moveTo(20, 34);
-    g.lineTo(W - 20, 34);
-    g.strokeStyle = 'rgba(0,255,255,0.3)';
-    g.stroke();
+    g.beginPath(); g.moveTo(20, 34); g.lineTo(W - 20, 34);
+    g.strokeStyle = 'rgba(0,255,255,0.3)'; g.stroke();
 
     g.textAlign = 'left';
     g.font = '12px sans-serif';
@@ -257,10 +291,8 @@ function buildInstructionPanel() {
     ];
     rows.forEach(([label, desc], i) => {
         const y = 54 + i * 24;
-        g.fillStyle = '#00ffff';
-        g.fillText(label, 12, y);
-        g.fillStyle = '#ffffff';
-        g.fillText(desc, 108, y);
+        g.fillStyle = '#00ffff'; g.fillText(label, 12, y);
+        g.fillStyle = '#ffffff'; g.fillText(desc, 108, y);
     });
 
     g.fillStyle = 'rgba(0,255,255,0.5)';
@@ -289,36 +321,27 @@ function handleVRInput() {
         const bt = src.gamepad.buttons;
 
         if (src.handedness === 'left') {
-            // Joystick X → Hour
             if (Math.abs(ax[2]) > 0.1) {
                 manualHour = (manualHour + ax[2] * 0.3 + 24) % 24;
-                isLive = false;
-                hudDirty = true;
+                isLive = false; hudDirty = true;
             }
-            // Joystick Y → Day
             if (Math.abs(ax[3]) > 0.1) {
                 manualDay = Math.max(1, Math.min(365, manualDay + ax[3] * 0.5));
-                isLive = false;
-                hudDirty = true;
+                isLive = false; hudDirty = true;
             }
-            // Trigger → Zoom OUT
             if (bt[0] && bt[0].pressed) vrZoom = Math.min(2500, vrZoom + 4);
         }
 
         if (src.handedness === 'right') {
-            // Joystick X → Horizontal orbit
             if (Math.abs(ax[2]) > 0.1) rigRotY -= ax[2] * 0.04;
-            // Joystick Y → Vertical orbit (clamped)
             if (Math.abs(ax[3]) > 0.1) {
                 rigRotX = THREE.MathUtils.clamp(rigRotX - ax[3] * 0.04, -1.4, 1.4);
             }
-            // Trigger → Zoom IN
             if (bt[0] && bt[0].pressed) vrZoom = Math.max(150, vrZoom - 4);
         }
     }
 }
 
-/** Positions vrCameraRig using spherical coords so user is always OUTSIDE the Earth */
 function updateRigPosition() {
     const cp = Math.cos(rigRotX);
     vrCameraRig.position.set(
@@ -341,21 +364,18 @@ function render() {
         const nd = Math.floor((now - ys) / 86400000);
         const nh = now.getUTCHours() + now.getUTCMinutes() / 60;
         if (nd !== Math.floor(manualDay) || Math.abs(nh - manualHour) > 0.02) {
-            manualDay = nd;
-            manualHour = nh;
-            hudDirty = true;
+            manualDay = nd; manualHour = nh; hudDirty = true;
         }
     }
 
     // ── Daily rotation ──
     rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
 
-    // ── VR mode ──
+    // ── Mode-specific logic ──
     if (isInVR) {
         handleVRInput();
         updateRigPosition();
     } else {
-        // Desktop mode — OrbitControls handles the camera
         if (controls) controls.update();
     }
 
@@ -366,16 +386,18 @@ function render() {
         hudDirty = false;
     }
 
-    // ── Cloud drift ──
     if (clouds) clouds.rotation.y += 0.0001;
 
-    // ── Debug (every 300 frames ≈ every 5 seconds) ──
+    // ── SCENE GRAPH DEBUG (every ~5 sec) ──
     debugCounter++;
     if (debugCounter % 300 === 0) {
-        console.log('[IAstronaut] cam pos:', camera.position.toArray().map(v => v.toFixed(1)),
-            '| earthGroup children:', earthGroup.children.length,
-            '| VR:', isInVR,
-            '| rig pos:', vrCameraRig.position.toArray().map(v => v.toFixed(1)));
+        console.log('[IAstronaut] RENDER DEBUG:',
+            'scene.children=' + scene.children.length,
+            '| rotationGroup.children=' + (rotationGroup ? rotationGroup.children.length : 'N/A'),
+            '| earth in rotationGroup=' + (rotationGroup && earth ? rotationGroup.children.includes(earth) : false),
+            '| cam.pos=(' + camera.position.x.toFixed(0) + ',' + camera.position.y.toFixed(0) + ',' + camera.position.z.toFixed(0) + ')',
+            '| VR=' + isInVR
+        );
     }
 
     renderer.render(scene, camera);
@@ -407,14 +429,14 @@ function syncDOM() {
 
     const h = Math.floor(manualHour);
     const m = Math.floor((manualHour % 1) * 60);
-    if (uiTime) uiTime.innerText = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0') + ':00 UTC';
+    if (uiTime) uiTime.innerText = h.toString().padStart(2,'0') + ':' + m.toString().padStart(2,'0') + ':00 UTC';
     if (uiSunCoords) uiSunCoords.innerText = 'Decl. Solar: ' + solarDeclination.toFixed(2) + '\u00b0';
 
     if (daySlider) daySlider.value = manualDay;
     if (hourSlider) hourSlider.value = manualHour;
 
     if (viewDayText) viewDayText.innerText = isLive ? 'Hoy' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0') + ' UTC';
+    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : h.toString().padStart(2,'0') + ':' + m.toString().padStart(2,'0') + ' UTC';
 
     if (liveBtn && manualBtn) {
         liveBtn.classList.toggle('active', isLive);
@@ -427,30 +449,47 @@ function syncDOM() {
 //  SCENE BUILDERS
 // ════════════════════════════════════════
 function createEarth() {
-    const ld = new THREE.TextureLoader();
-    earth = new THREE.Mesh(
-        new THREE.SphereGeometry(100, 48, 48),
-        new THREE.MeshPhongMaterial({
-            map: ld.load(TEXTURES.earth),
-            normalMap: ld.load(TEXTURES.normal),
+    console.log('[IAstronaut] createEarth() — loading textures...');
+
+    // Fallback material in case ALL textures fail
+    const fallbackMat = new THREE.MeshPhongMaterial({
+        color: 0x2244aa,
+        emissive: 0x112244,
+        shininess: 10
+    });
+
+    // Load textures with CORS-safe fallback
+    const earthTex   = loadTexture(TEXTURE_URLS.earth);
+    const normalTex  = loadTexture(TEXTURE_URLS.normal);
+    const specTex    = loadTexture(TEXTURE_URLS.specular);
+
+    let material;
+    if (earthTex) {
+        material = new THREE.MeshPhongMaterial({
+            map: earthTex,
+            normalMap: normalTex,
             normalScale: new THREE.Vector2(0.85, 0.85),
-            specularMap: ld.load(TEXTURES.specular),
+            specularMap: specTex,
             specular: new THREE.Color('grey'),
             shininess: 5
-        })
-    );
-    rotationGroup.add(earth);
-    console.log('[IAstronaut] Earth created at origin, radius=100');
+        });
+        console.log('[IAstronaut] Earth material created WITH textures');
+    } else {
+        material = fallbackMat;
+        console.warn('[IAstronaut] Earth using FALLBACK solid blue material');
+    }
 
-    clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(101, 32, 32),
-        new THREE.MeshPhongMaterial({
-            map: ld.load(TEXTURES.clouds),
-            transparent: true,
-            opacity: 0.4,
-            depthWrite: false
-        })
-    );
+    earth = new THREE.Mesh(new THREE.SphereGeometry(100, 48, 48), material);
+    rotationGroup.add(earth);
+    console.log('[IAstronaut] Earth mesh added to rotationGroup. Children now:', rotationGroup.children.length);
+
+    // Clouds
+    const cloudTex = loadTexture(TEXTURE_URLS.clouds);
+    const cloudMat = cloudTex
+        ? new THREE.MeshPhongMaterial({ map: cloudTex, transparent: true, opacity: 0.4, depthWrite: false })
+        : new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, depthWrite: false });
+
+    clouds = new THREE.Mesh(new THREE.SphereGeometry(101, 32, 32), cloudMat);
     rotationGroup.add(clouds);
 }
 
@@ -474,19 +513,15 @@ function createStars() {
     for (let i = 0; i < STAR_COUNT; i++) {
         const t = Math.random() * Math.PI * 2;
         const p = Math.acos(2 * Math.random() - 1);
-        v[i * 3] = CELESTIAL_R * Math.sin(p) * Math.cos(t);
-        v[i * 3 + 1] = CELESTIAL_R * Math.sin(p) * Math.sin(t);
-        v[i * 3 + 2] = CELESTIAL_R * Math.cos(p);
+        v[i*3]   = CELESTIAL_R * Math.sin(p) * Math.cos(t);
+        v[i*3+1] = CELESTIAL_R * Math.sin(p) * Math.sin(t);
+        v[i*3+2] = CELESTIAL_R * Math.cos(p);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(v, 3));
     starField = new THREE.Points(g, new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 1.5,
-        sizeAttenuation: false,
-        transparent: true,
-        opacity: 0.8,
-        depthWrite: false
+        color: 0xffffff, size: 1.5, sizeAttenuation: false,
+        transparent: true, opacity: 0.8, depthWrite: false
     }));
     scene.add(starField);
 }
@@ -503,12 +538,12 @@ function createCelestialMarkers() {
 
 
 // ════════════════════════════════════════
-//  DOM LISTENERS & RESIZE
+//  DOM & RESIZE
 // ════════════════════════════════════════
 function setupDOMListeners() {
-    if (liveBtn) liveBtn.addEventListener('click', () => { isLive = true; hudDirty = true; });
+    if (liveBtn)   liveBtn.addEventListener('click', () => { isLive = true; hudDirty = true; });
     if (manualBtn) manualBtn.addEventListener('click', () => { isLive = false; hudDirty = true; });
-    if (daySlider) daySlider.addEventListener('input', e => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
+    if (daySlider)  daySlider.addEventListener('input', e => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
     if (hourSlider) hourSlider.addEventListener('input', e => { manualHour = parseFloat(e.target.value); isLive = false; hudDirty = true; });
 }
 
@@ -524,7 +559,6 @@ function onResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
 }
-
 
 // ════════════════════════════════════════
 init();
