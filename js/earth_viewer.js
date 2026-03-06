@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 // Configuration
 const TEXTURES = {
@@ -49,6 +50,29 @@ function init() {
     renderer.toneMapping = THREE.ReinhardToneMapping;
     container.appendChild(renderer.domElement);
 
+    // --- WebXR VR Support ---
+    renderer.xr.enabled = true;
+
+    // Create and style the VR button
+    const vrButton = VRButton.createButton(renderer);
+    vrButton.style.position = 'fixed';
+    vrButton.style.top = '20px';
+    vrButton.style.right = '20px';
+    vrButton.style.bottom = 'auto';
+    vrButton.style.left = 'auto';
+    vrButton.style.zIndex = '9999';
+    vrButton.style.background = 'rgba(8, 12, 24, 0.8)';
+    vrButton.style.border = '1px solid #3cefff';
+    vrButton.style.color = '#3cefff';
+    vrButton.style.fontFamily = "'Orbitron', sans-serif";
+    vrButton.style.fontSize = '0.75rem';
+    vrButton.style.letterSpacing = '2px';
+    vrButton.style.padding = '12px 20px';
+    vrButton.style.borderRadius = '8px';
+    vrButton.style.cursor = 'pointer';
+    vrButton.style.boxShadow = '0 0 15px rgba(60, 239, 255, 0.3)';
+    document.body.appendChild(vrButton);
+
     // 4. Controls Setup
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -84,8 +108,8 @@ function init() {
     manualDay = currentDay;
     manualHour = parseFloat(hourSlider.value);
 
-    // Start Animation
-    animate();
+    // Start Animation Loop (WebXR compatible)
+    renderer.setAnimationLoop(render);
 
     // Hide loading screen after textures load (simulated delay for smoothness)
     setTimeout(() => {
@@ -188,10 +212,11 @@ function createStars() {
     });
 
     const starVertices = [];
-    for (let i = 0; i < 10000; i++) {
-        const x = (Math.random() - 0.5) * 2000;
-        const y = (Math.random() - 0.5) * 2000;
-        const z = (Math.random() - 0.5) * 2000;
+    for (let i = 0; i < 15000; i++) {
+        // Larger radius (4000) ensures stars are visible inside VR headset
+        const x = (Math.random() - 0.5) * 4000;
+        const y = (Math.random() - 0.5) * 4000;
+        const z = (Math.random() - 0.5) * 4000;
         starVertices.push(x, y, z);
     }
 
@@ -278,22 +303,21 @@ function onWindowResize() {
     renderer.setSize(width, height);
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-
+// --- WebXR-compatible render loop ---
+function render(timestamp, frame) {
     const delta = clock.getDelta();
 
-    // Constant rotation of Earth (sidereal)
-    // Earth rotates ~360 deg every 24h.
-    // Here we just add a slow rotation for aesthetic effect + the sun positioning
-    // Actually, to make it "live", we should strictly follow the sun position calculation.
-    // Only rotate clouds to show movement.
+    // Rotate clouds for visual effect
     if (clouds) clouds.rotation.y += 0.0002;
 
-    // Update Sun
+    // Update Sun Position
     updateSunPosition();
 
-    controls.update();
+    // Update OrbitControls only when NOT in VR session
+    if (!renderer.xr.isPresenting) {
+        controls.update();
+    }
+
     renderer.render(scene, camera);
 }
 
