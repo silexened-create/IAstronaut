@@ -3,8 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 /**
- * IAstronaut - MODO OBSERVATORIO POLAR (VR)
- * Simulación pedagógica de alta precisión para ciclos polares y sol de medianoche.
+ * IAstronaut - MODO OBSERVATORIO: GUÍAS CELESTES Y STAR TRAILS
+ * Visualización pedagógica de rotación axial, guías geométricas y marcadores estelares.
  */
 
 // Configuration
@@ -17,18 +17,19 @@ const TEXTURES = {
 };
 
 let scene, camera, renderer, controls;
-let earthGroup, controller1, controller2;
+let earthAnchor, earthGroup, rotationGroup, vrCameraRig;
 let earth, clouds, sunLight, starField;
 let vrInstructionsHUD;
 
-// VR Rigging & State
-let vrCameraRig; // El grupo que orbiará la Tierra en VR
+// VR State
 let vrZoomValue = 450;
 let vrRotateX = 0;
 let vrRotateY = 0;
 
-// Constantes Físicas
+// Constantes Físicas y de Diseño
 const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
+const STAR_COUNT = 15000;
+const CELESTIAL_RADIUS = 10000;
 
 // UI References
 const container = document.getElementById('canvas-container');
@@ -55,7 +56,7 @@ function init() {
     scene = new THREE.Scene();
 
     // 2. Camera & Rig Setup
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 25000);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 35000);
     
     vrCameraRig = new THREE.Group();
     vrCameraRig.add(camera);
@@ -71,76 +72,145 @@ function init() {
 
     // VR Button
     const vrButton = VRButton.createButton(renderer);
-    vrButton.style.background = 'rgba(10, 25, 50, 0.95)';
+    vrButton.style.background = 'rgba(8, 20, 50, 0.95)';
     vrButton.style.border = '2px solid #00ffff';
     vrButton.style.color = '#00ffff';
+    vrButton.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.2)';
     document.body.appendChild(vrButton);
 
     // 4. VR Controllers
     setupVRControllers();
 
-    // 5. OrbitControls (Escritorio) - Actúa sobre el rig para consistencia
+    // 5. OrbitControls (Desktop)
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 200;
-    controls.maxDistance = 2000;
+    controls.maxDistance = 3000;
 
-    // 6. Earth Group (Eje Inclinado Fijo)
+    // 6. Earth Hierarchy
+    // earthAnchor: Movimiento global (VR Zoom/Orbit)
+    // earthGroup: Inclinación Axial fija (Z = 23.44)
+    // rotationGroup: Rotación Diaria (Y = hora)
+    earthAnchor = new THREE.Group();
+    scene.add(earthAnchor);
+
     earthGroup = new THREE.Group();
-    earthGroup.rotation.z = AXIAL_TILT; 
-    scene.add(earthGroup);
+    earthGroup.rotation.z = AXIAL_TILT;
+    earthAnchor.add(earthGroup);
 
-    const ambientLight = new THREE.AmbientLight(0x111133, 0.5);
+    rotationGroup = new THREE.Group();
+    earthGroup.add(rotationGroup);
+
+    // 7. Guides & Markers
+    createCelestialGuides();
+    createStars();
+    createCelestialMarkers();
+
+    // 8. Lighting
+    const ambientLight = new THREE.AmbientLight(0x222244, 0.4);
     scene.add(ambientLight);
 
-    sunLight = new THREE.DirectionalLight(0xffffff, 3.2);
+    sunLight = new THREE.DirectionalLight(0xffffff, 3.0);
     scene.add(sunLight);
     scene.add(sunLight.target);
 
     createEarth();
-    createStars();
 
-    // 7. Event Listeners
+    // 9. Event Listeners
     window.addEventListener('resize', onWindowResize);
     setupTemporalListeners();
 
-    // Sincronización inicial
+    // Initial state
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
     manualDay = Math.floor((now - start) / (1000 * 60 * 60 * 24));
     manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
 
-    // 8. Start Animation Loop
+    // 10. Start Animation Loop
     renderer.setAnimationLoop(render);
 
     if (loadingScreen) {
         setTimeout(() => {
             loadingScreen.style.opacity = '0';
-            setTimeout(() => loadingScreen.classList.add('hidden'), 1000);
+            setTimeout(() => loadingScreen.classList.add('hidden'), 1500);
         }, 1500);
     }
 }
 
+function createCelestialGuides() {
+    // Eje de Rotación (Rojo sutil)
+    const axisGeo = new THREE.CylinderGeometry(0.5, 0.5, 450, 8);
+    const axisMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.35 });
+    const axis = new THREE.Mesh(axisGeo, axisMat);
+    // El eje está en earthGroup para seguir la inclinación Z pero no rota con el día
+    earthGroup.add(axis);
+
+    // Ecuador Visual (Cian sutil)
+    const equatorGeo = new THREE.TorusGeometry(105, 0.4, 8, 100);
+    const equatorMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.35 });
+    const equator = new THREE.Mesh(equatorGeo, equatorMat);
+    equator.rotation.x = Math.PI / 2;
+    // El ecuador también está en earthGroup (inclinado pero estático respecto al día)
+    earthGroup.add(equator);
+}
+
+function createCelestialMarkers() {
+    // Marcadores Celestes Fijos (Lejos de la Tierra, en la esfera celeste)
+    const markerGeo = new THREE.SphereGeometry(25, 16, 16);
+    
+    // Polaris (Cerca del Polo Norte Celeste)
+    const polarisMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+    const polaris = new THREE.Mesh(markerGeo, polarisMat);
+    polaris.position.set(0, CELESTIAL_RADIUS, 0); 
+    scene.add(polaris);
+
+    // Sigma Octantis (Cerca del Polo Sur Celeste)
+    const sigmaMat = new THREE.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.8 });
+    const sigma = new THREE.Mesh(markerGeo, sigmaMat);
+    sigma.position.set(0, -CELESTIAL_RADIUS, 0);
+    scene.add(sigma);
+}
+
+function createStars() {
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 1.2,
+        transparent: true,
+        opacity: 0.7
+    });
+
+    const starVertices = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+        // Distribuir estrellas en una esfera de gran radio
+        const r = CELESTIAL_RADIUS;
+        const theta = 2 * Math.PI * Math.random();
+        const phi = Math.acos(2 * Math.random() - 1);
+        
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const y = r * Math.sin(phi) * Math.sin(theta);
+        const z = r * Math.cos(phi);
+        
+        starVertices.push(x, y, z);
+    }
+
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField); // Estrellas estáticas en la escena
+}
+
 function setupVRControllers() {
-    // Control Izquierdo (Mando HUD)
     controller1 = renderer.xr.getController(0);
     scene.add(controller1);
     
     vrInstructionsHUD = createVRInstructions();
-    vrInstructionsHUD.position.set(0, 0.2, 0.05);
+    vrInstructionsHUD.position.set(0, 0.22, 0.05);
     vrInstructionsHUD.rotation.x = -Math.PI / 4;
     controller1.add(vrInstructionsHUD);
 
-    // Control Derecho
     controller2 = renderer.xr.getController(1);
     scene.add(controller2);
-
-    // Punteros laser sutiles
-    const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-0.5)]);
-    const laserMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4 });
-    controller1.add(new THREE.Line(laserGeo, laserMat));
-    controller2.add(new THREE.Line(laserGeo, laserMat));
 }
 
 function createVRInstructions() {
@@ -150,7 +220,7 @@ function createVRInstructions() {
     const ctx = canvas.getContext('2d');
 
     function update() {
-        ctx.fillStyle = 'rgba(8, 20, 45, 0.95)';
+        ctx.fillStyle = 'rgba(10, 15, 35, 0.95)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         ctx.strokeStyle = '#00ffff';
@@ -160,30 +230,30 @@ function createVRInstructions() {
         ctx.fillStyle = '#00ffff';
         ctx.font = 'bold 30px Orbitron, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('OBSERVATORIO POLAR', canvas.width / 2, 50);
+        ctx.fillText('GUÍAS CELESTES', canvas.width / 2, 50);
 
         ctx.textAlign = 'left';
         ctx.font = '22px Orbitron, sans-serif';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('Joy Der: Vuela a los Polos (Órbita)', 40, 100);
-        ctx.fillText('Joy Izq: Control Tiempo (Día/Hora)', 40, 140);
+        ctx.fillText('Joy Izq: Giro Temporal (Star Trails)', 40, 100);
+        ctx.fillText('Joy Der: Órbita / Vuelo Polar', 40, 140);
         ctx.fillText('Gatillos: Zoom +/-', 40, 180);
 
-        ctx.font = 'italic 18px Orbitron, sans-serif';
+        ctx.font = '18px Orbitron, sans-serif';
         ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
         ctx.fillText(`Declinación: ${solarDeclination.toFixed(2)}°`, 40, 240);
-        ctx.fillText(`Día: ${Math.floor(manualDay)} | Hora: ${manualHour.toFixed(2)}h`, 40, 275);
+        ctx.fillText(`H: ${manualHour.toFixed(2)} | D: ${Math.floor(manualDay)}`, 40, 275);
         
         ctx.textAlign = 'center';
         ctx.font = 'bold 16px Orbitron, sans-serif';
-        ctx.fillText('ESTUDIO DEL SOL DE MEDIANOCHE', canvas.width/2, 330);
+        ctx.fillText('OBSERVA LA ROTACIÓN DIFERENCIAL', canvas.width/2, 330);
         
         hudTexture.needsUpdate = true;
     }
 
     const hudTexture = new THREE.CanvasTexture(canvas);
     const hudMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.3, 0.21),
+        new THREE.PlaneGeometry(0.32, 0.22),
         new THREE.MeshBasicMaterial({ map: hudTexture, transparent: true, side: THREE.DoubleSide })
     );
 
@@ -201,38 +271,28 @@ function handleVRInput() {
         const buttons = source.gamepad.buttons;
         const hand = source.handedness;
 
-        // MANO DERECHA: Órbita de la Cámara (Rig)
         if (hand === 'right') {
-            // Rotación Horizontal (Giro alrededor de la Tierra)
             if (Math.abs(axes[2]) > 0.1) vrRotateY -= axes[2] * 0.04;
-            // Rotación Vertical (Vuelo sobre Polos) con límite de 90°
-            if (Math.abs(axes[3]) > 0.1) {
-                vrRotateX = Math.max(-Math.PI/2, Math.min(Math.PI/2, vrRotateX - axes[3] * 0.04));
-            }
-            // Zoom In (Gatillo)
+            if (Math.abs(axes[3]) > 0.1) vrRotateX = Math.max(-Math.PI/2, Math.min(Math.PI/2, vrRotateX - axes[3] * 0.04));
             if (buttons[0].pressed) vrZoomValue = Math.max(150, vrZoomValue - 4);
-        }
-
-        // MANO IZQUIERDA: Control del Tiempo
-        else if (hand === 'left') {
+        } else if (hand === 'left') {
             let changed = false;
-            // X -> Hora (Rotación axial Tierra)
+            // X -> Giro rápido para Star Trails
             if (Math.abs(axes[2]) > 0.1) {
-                manualHour = (manualHour + axes[2] * 0.2) % 24;
+                manualHour = (manualHour + axes[2] * 0.5) % 24; // Acelerado para efecto visual
                 if (manualHour < 0) manualHour += 24;
                 changed = true;
             }
-            // Y -> Día (Simulación estacional)
+            // Y -> Cambio de estación
             if (Math.abs(axes[3]) > 0.1) {
-                manualDay = Math.max(1, Math.min(365, manualDay + axes[3] * 0.5));
+                manualDay = Math.max(1, Math.min(365, manualDay + axes[3] * 0.4));
                 changed = true;
             }
             if (changed) {
                 isLive = false;
                 syncVRToDOM();
             }
-            // Zoom Out (Gatillo)
-            if (buttons[0].pressed) vrZoomValue = Math.min(1800, vrZoomValue + 4);
+            if (buttons[0].pressed) vrZoomValue = Math.min(1500, vrZoomValue + 4);
         }
     }
 }
@@ -257,53 +317,48 @@ function render() {
         manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
     }
 
-    // FÍSICA: Rotación Diaria sobre el Eje Inclinado
-    // La Tierra rota sobre su eje Y local. 
-    earthGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
+    // Rotación Diaria en rotationGroup (Hijo de tiltGroup)
+    rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
 
     if (isPresenting) {
         handleVRInput();
-        
-        // Aplicar rotaciones al Rig de la Cámara
-        vrCameraRig.rotation.order = 'YXZ'; // Primero horizontal, luego vertical
+        vrCameraRig.rotation.order = 'YXZ';
         vrCameraRig.rotation.y = vrRotateY;
         vrCameraRig.rotation.x = vrRotateX;
-        
-        // La cámara siempre mira al centro desde su distancia de zoom
         camera.position.set(0, 0, vrZoomValue);
         camera.lookAt(0, 0, 0);
 
         if (vrInstructionsHUD && vrInstructionsHUD.userData.update) {
             vrInstructionsHUD.userData.update();
         }
+        
+        // Sun follows Earth Anchor
+        sunLight.target.position.copy(earthAnchor.position);
     } else {
-        // Modo Escritorio: Reseteo del Rig para OrbitControls
         vrCameraRig.rotation.set(0, 0, 0);
         if (controls) controls.update();
+        sunLight.target.position.set(0, 0, 0);
     }
 
-    updateSunPosition();
+    updateSunDynamics();
     if (clouds) clouds.rotation.y += 0.0001;
 
     renderer.render(scene, camera);
 }
 
-function updateSunPosition() {
-    // Cálculo estricto de Declinación Solar
+function updateSunDynamics() {
     solarDeclination = 23.44 * Math.sin((2 * Math.PI / 365) * (manualDay - 81));
     const declRad = THREE.MathUtils.degToRad(solarDeclination);
     
-    // Posicionar el Sol en el eje Y-Z relativo al ecuador celeste
-    const radius = 2500;
+    // Dirección del Sol fija relativa al eclíptico
+    const radius = 3000;
     const sy = radius * Math.sin(declRad);
     const sz = radius * Math.cos(declRad);
     
-    // El Sol se mantiene en una dirección fija para simular la órbita terrestre
     sunLight.position.set(0, sy, sz);
-    sunLight.target.position.set(0, 0, 0);
     sunLight.target.updateMatrixWorld();
 
-    // Actualizar UI DOM
+    // Actualizar UI
     const date = new Date(new Date().getFullYear(), 0);
     date.setDate(manualDay);
     if (uiDate) uiDate.innerText = date.toLocaleDateString();
@@ -323,11 +378,11 @@ function createEarth() {
         normalScale: new THREE.Vector2(0.85, 0.85),
         specularMap: loader.load(TEXTURES.specular),
         specular: new THREE.Color('grey'),
-        shininess: 10
+        shininess: 5
     });
 
     earth = new THREE.Mesh(geometry, material);
-    earthGroup.add(earth);
+    rotationGroup.add(earth);
 
     // Clouds
     const cloudGeometry = new THREE.SphereGeometry(101, 64, 64);
@@ -337,34 +392,20 @@ function createEarth() {
         opacity: 0.4
     });
     clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
-    earthGroup.add(clouds);
+    rotationGroup.add(clouds);
 
-    // Glow
+    // Glow sutil
     const glowTexture = loader.load(TEXTURES.stars);
     const glowMaterial = new THREE.SpriteMaterial({
         map: glowTexture,
         color: 0x58a6ff,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.25,
         blending: THREE.AdditiveBlending
     });
     const glow = new THREE.Sprite(glowMaterial);
     glow.scale.set(380, 380, 1);
-    earthGroup.add(glow);
-}
-
-function createStars() {
-    const starGeometry = new THREE.BufferGeometry();
-    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.9, transparent: true, opacity: 0.8 });
-    const starVertices = [];
-    for (let i = 0; i < 20000; i++) {
-        const x = (Math.random() - 0.5) * 15000;
-        const y = (Math.random() - 0.5) * 15000;
-        const z = (Math.random() - 0.5) * 15000;
-        starVertices.push(x, y, z);
-    }
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    scene.add(new THREE.Points(starGeometry, starMaterial));
+    rotationGroup.add(glow);
 }
 
 function onWindowResize() {
