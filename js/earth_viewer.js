@@ -3,38 +3,26 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 /**
- * IAstronaut - Earth Viewer: Stable VR Edition v2
+ * IAstronaut - Earth Viewer v3 (Stable Desktop + VR)
  *
- * KEY FIX: WebXR overrides camera.position, so we cannot use it for zoom.
- * Instead, we position the vrCameraRig itself using spherical coordinates
- * computed from (vrZoom, rigRotY, rigRotX). The rig always looks at (0,0,0).
- *
- * Hierarchy:
- *   scene
- *     ├── vrCameraRig  ← position = spherical(zoom, yaw, pitch), lookAt(0,0,0)
- *     │     ├── camera  ← WebXR controls this freely for headset tracking
- *     │     ├── controller1 (left hand) + instruction panel
- *     │     └── controller2 (right hand)
- *     ├── earthAnchor > earthGroup (tilt 23.44°) > rotationGroup (daily)
- *     │     ├── earth, clouds, axis, equator
- *     ├── starField, polaris, sigma (direct scene children)
- *     └── sunLight, ambientLight
- *
- * VR Controls:
- *   Left  Joy X → Hour    | Left  Joy Y → Day
- *   Right Joy X → Orbit H | Right Joy Y → Orbit V
- *   Left  Trigger → Zoom Out | Right Trigger → Zoom In
+ * DESIGN DECISIONS:
+ * - Camera is added directly to the scene (NOT as child of rig) so that
+ *   OrbitControls works normally in desktop mode.
+ * - In VR mode, the vrCameraRig is repositioned every frame using spherical
+ *   coordinates, and the camera is re-parented to the rig on sessionstart.
+ * - On sessionend, camera is returned to the scene for OrbitControls.
+ * - Instruction panel is attached to controller1 (left hand).
  */
 
 // ── CONSTANTS ──
-const AXIAL_TILT  = THREE.MathUtils.degToRad(23.44);
-const STAR_COUNT  = 5000;
+const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
+const STAR_COUNT = 5000;
 const CELESTIAL_R = 15000;
 const TEXTURES = {
-    earth:    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
-    normal:   'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg',
+    earth: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
+    normal: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg',
     specular: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg',
-    clouds:   'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'
+    clouds: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'
 };
 
 // ── GLOBALS ──
@@ -45,86 +33,96 @@ let earth, clouds, sunLight, starField;
 let vrInstructionsPanel;
 
 // ── STATE ──
-let vrZoom  = 500;     // distance from Earth center
-let rigRotY = 0;       // horizontal orbit (radians)
-let rigRotX = 0;       // vertical orbit (radians, clamped)
-let isLive  = true;
-let manualDay  = 1;
+let vrZoom = 500;
+let rigRotY = 0;
+let rigRotX = 0;
+let isLive = true;
+let manualDay = 1;
 let manualHour = 12;
 let solarDeclination = 0;
 let hudDirty = true;
+let isInVR = false;
+let debugCounter = 0;
 
-// ── DOM (null-safe) ──
-const container     = document.getElementById('canvas-container');
+// ── DOM ──
+const container = document.getElementById('canvas-container');
 const loadingScreen = document.getElementById('loading-screen');
-const uiDate        = document.getElementById('current-date');
-const uiTime        = document.getElementById('current-time');
-const uiSunCoords   = document.getElementById('sun-coords');
-const liveBtn       = document.getElementById('live-mode');
-const manualBtn     = document.getElementById('manual-mode');
-const daySlider     = document.getElementById('day-range');
-const hourSlider    = document.getElementById('hour-range');
-const viewDayText   = document.getElementById('view-day');
-const viewHourText  = document.getElementById('view-hour');
+const uiDate = document.getElementById('current-date');
+const uiTime = document.getElementById('current-time');
+const uiSunCoords = document.getElementById('sun-coords');
+const liveBtn = document.getElementById('live-mode');
+const manualBtn = document.getElementById('manual-mode');
+const daySlider = document.getElementById('day-range');
+const hourSlider = document.getElementById('hour-range');
+const viewDayText = document.getElementById('view-day');
+const viewHourText = document.getElementById('view-hour');
 
 
 // ════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════
 function init() {
-    if (!container) return;
+    if (!container) {
+        console.error('[IAstronaut] canvas-container not found');
+        return;
+    }
 
+    // ── Scene ──
     scene = new THREE.Scene();
+    console.log('[IAstronaut] Scene created');
 
-    // Camera
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+    // ── Camera (direct child of scene for desktop) ──
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 25000);
+    camera.position.set(0, 50, 500);
+    scene.add(camera);
+    console.log('[IAstronaut] Camera at:', camera.position.toArray());
 
-    // Camera Rig — its POSITION is what keeps us away from the Earth
+    // ── VR Camera Rig (used only in VR mode) ──
     vrCameraRig = new THREE.Group();
-    vrCameraRig.add(camera);
+    vrCameraRig.visible = false; // Hidden until VR starts
     scene.add(vrCameraRig);
 
-    // Set initial rig position (will be overwritten each frame in VR)
-    camera.position.set(0, 0, vrZoom); // desktop default
-
-    // Renderer (optimized for Quest)
+    // ── Renderer ──
     renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
+    console.log('[IAstronaut] Renderer initialized');
 
-    // VR Button
+    // ── VR Button ──
     const vrBtn = VRButton.createButton(renderer);
     vrBtn.style.background = 'rgba(8,12,32,0.9)';
     vrBtn.style.border = '2px solid #00ffff';
     vrBtn.style.color = '#00ffff';
     document.body.appendChild(vrBtn);
 
-    // Controllers (children of rig so they move with user)
-    setupControllers();
+    // ── Controllers (added to rig, active only in VR) ──
+    controller1 = renderer.xr.getController(0);
+    vrCameraRig.add(controller1);
+    controller2 = renderer.xr.getController(1);
+    vrCameraRig.add(controller2);
 
-    // Desktop OrbitControls
+    // Instruction panel on left hand
+    vrInstructionsPanel = buildInstructionPanel();
+    vrInstructionsPanel.position.set(0, 0.12, -0.25);
+    vrInstructionsPanel.rotation.x = -Math.PI / 5;
+    controller1.add(vrInstructionsPanel);
+
+    // ── Desktop OrbitControls ──
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 150;
     controls.maxDistance = 3000;
+    controls.target.set(0, 0, 0);
+    controls.update();
 
-    // XR Session handlers
-    renderer.xr.addEventListener('sessionstart', () => {
-        if (controls) controls.enabled = false;
-    });
-    renderer.xr.addEventListener('sessionend', () => {
-        if (controls) {
-            controls.enabled = true;
-            camera.position.set(0, 0, 450);
-            camera.lookAt(0, 0, 0);
-            controls.update();
-        }
-    });
+    // ── XR session handlers ──
+    renderer.xr.addEventListener('sessionstart', onVRStart);
+    renderer.xr.addEventListener('sessionend', onVREnd);
 
-    // Earth hierarchy
+    // ── Earth hierarchy ──
     earthAnchor = new THREE.Group();
     scene.add(earthAnchor);
 
@@ -135,104 +133,136 @@ function init() {
     rotationGroup = new THREE.Group();
     earthGroup.add(rotationGroup);
 
-    // Build scene
+    // ── Build scene ──
     createEarth();
     createCelestialGuides();
     createStars();
     createCelestialMarkers();
 
-    // Lighting
-    scene.add(new THREE.AmbientLight(0x222244, 0.5));
-    sunLight = new THREE.DirectionalLight(0xffffff, 3.0);
+    // ── Lighting (strong enough to always see the Earth) ──
+    const ambient = new THREE.AmbientLight(0x334466, 1.0);
+    scene.add(ambient);
+
+    sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     scene.add(sunLight);
     scene.add(sunLight.target);
 
-    // DOM
+    // ── Initial sun position ──
+    updateSunPosition();
+
+    // ── DOM listeners ──
     window.addEventListener('resize', onResize);
     setupDOMListeners();
 
-    // Initial time from clock
+    // ── Set initial time ──
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 0);
-    manualDay  = Math.floor((now - yearStart) / 86400000);
+    manualDay = Math.floor((now - yearStart) / 86400000);
     manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+    hudDirty = true;
 
-    // Start
+    // ── Start ──
     renderer.setAnimationLoop(render);
 
+    // ── Loading screen ──
     if (loadingScreen) {
         setTimeout(() => {
             loadingScreen.style.opacity = '0';
             setTimeout(() => loadingScreen.classList.add('hidden'), 1000);
-        }, 1500);
+        }, 2000);
+    }
+
+    console.log('[IAstronaut] Init complete. earthGroup children:', earthGroup.children.length,
+        'rotationGroup children:', rotationGroup.children.length);
+}
+
+
+// ════════════════════════════════════════
+//  VR SESSION MANAGEMENT
+// ════════════════════════════════════════
+function onVRStart() {
+    console.log('[IAstronaut] VR session started');
+    isInVR = true;
+
+    // Disable desktop controls
+    if (controls) controls.enabled = false;
+
+    // Re-parent camera to rig
+    scene.remove(camera);
+    vrCameraRig.add(camera);
+    camera.position.set(0, 0, 0); // WebXR manages local position
+    vrCameraRig.visible = true;
+
+    // Force initial rig position outside the Earth
+    updateRigPosition();
+    console.log('[IAstronaut] VR rig position:', vrCameraRig.position.toArray());
+}
+
+function onVREnd() {
+    console.log('[IAstronaut] VR session ended');
+    isInVR = false;
+
+    // Return camera to scene
+    vrCameraRig.remove(camera);
+    scene.add(camera);
+    vrCameraRig.visible = false;
+
+    // Restore desktop state
+    camera.position.set(0, 50, 500);
+    camera.lookAt(0, 0, 0);
+
+    if (controls) {
+        controls.enabled = true;
+        controls.target.set(0, 0, 0);
+        controls.update();
     }
 }
 
 
 // ════════════════════════════════════════
-//  CONTROLLERS + INSTRUCTION PANEL
+//  INSTRUCTION PANEL (static, one-time draw)
 // ════════════════════════════════════════
-function setupControllers() {
-    controller1 = renderer.xr.getController(0);
-    vrCameraRig.add(controller1);
-
-    controller2 = renderer.xr.getController(1);
-    vrCameraRig.add(controller2);
-
-    // Build and attach the instruction panel to left hand
-    vrInstructionsPanel = buildInstructionPanel();
-    vrInstructionsPanel.position.set(0, 0.12, -0.25);
-    vrInstructionsPanel.rotation.x = -Math.PI / 5;
-    controller1.add(vrInstructionsPanel);
-}
-
-/** Static instruction panel — drawn ONCE, zero per-frame cost */
 function buildInstructionPanel() {
     const W = 256, H = 220;
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d');
 
-    // Background
     g.fillStyle = 'rgba(6, 10, 28, 0.94)';
     g.fillRect(0, 0, W, H);
     g.strokeStyle = '#00ffff';
     g.lineWidth = 2;
     g.strokeRect(3, 3, W - 6, H - 6);
 
-    // Title
     g.fillStyle = '#00ffff';
     g.font = 'bold 16px sans-serif';
     g.textAlign = 'center';
     g.fillText('CONTROLES VR', W / 2, 24);
 
-    // Separator
     g.beginPath();
     g.moveTo(20, 34);
     g.lineTo(W - 20, 34);
     g.strokeStyle = 'rgba(0,255,255,0.3)';
     g.stroke();
 
-    // Control lines
     g.textAlign = 'left';
     g.font = '12px sans-serif';
     const rows = [
-        ['#00ffff', 'Joy Izq X:', '#fff', 'Hora del dia'],
-        ['#00ffff', 'Joy Izq Y:', '#fff', 'Dia del anno'],
-        ['#00ffff', 'Joy Der X:', '#fff', 'Orbita horizontal'],
-        ['#00ffff', 'Joy Der Y:', '#fff', 'Vuelo polar'],
-        ['#00ffff', 'Gatillo Izq:', '#fff', 'Zoom Out (-)'],
-        ['#00ffff', 'Gatillo Der:', '#fff', 'Zoom In (+)'],
+        ['Joy Izq X:', 'Hora del dia'],
+        ['Joy Izq Y:', 'Dia del anno'],
+        ['Joy Der X:', 'Orbita horizontal'],
+        ['Joy Der Y:', 'Vuelo polar'],
+        ['Gatillo Izq:', 'Zoom Out (-)'],
+        ['Gatillo Der:', 'Zoom In (+)'],
     ];
-    rows.forEach(([lc, label, dc, desc], i) => {
+    rows.forEach(([label, desc], i) => {
         const y = 54 + i * 24;
-        g.fillStyle = lc;
+        g.fillStyle = '#00ffff';
         g.fillText(label, 12, y);
-        g.fillStyle = dc;
-        g.fillText(desc, 105, y);
+        g.fillStyle = '#ffffff';
+        g.fillText(desc, 108, y);
     });
 
-    // Footer
     g.fillStyle = 'rgba(0,255,255,0.5)';
     g.font = '10px sans-serif';
     g.textAlign = 'center';
@@ -258,46 +288,43 @@ function handleVRInput() {
         const ax = src.gamepad.axes;
         const bt = src.gamepad.buttons;
 
-        // ── LEFT HAND: Time Master ──
         if (src.handedness === 'left') {
+            // Joystick X → Hour
             if (Math.abs(ax[2]) > 0.1) {
                 manualHour = (manualHour + ax[2] * 0.3 + 24) % 24;
                 isLive = false;
                 hudDirty = true;
             }
+            // Joystick Y → Day
             if (Math.abs(ax[3]) > 0.1) {
                 manualDay = Math.max(1, Math.min(365, manualDay + ax[3] * 0.5));
                 isLive = false;
                 hudDirty = true;
             }
-            // Trigger = Zoom OUT
+            // Trigger → Zoom OUT
             if (bt[0] && bt[0].pressed) vrZoom = Math.min(2500, vrZoom + 4);
         }
 
-        // ── RIGHT HAND: Orbit Master ──
         if (src.handedness === 'right') {
+            // Joystick X → Horizontal orbit
             if (Math.abs(ax[2]) > 0.1) rigRotY -= ax[2] * 0.04;
+            // Joystick Y → Vertical orbit (clamped)
             if (Math.abs(ax[3]) > 0.1) {
                 rigRotX = THREE.MathUtils.clamp(rigRotX - ax[3] * 0.04, -1.4, 1.4);
             }
-            // Trigger = Zoom IN
+            // Trigger → Zoom IN
             if (bt[0] && bt[0].pressed) vrZoom = Math.max(150, vrZoom - 4);
         }
     }
 }
 
-/**
- * Position the rig in world space using spherical coordinates.
- * This is the KEY to avoiding the "inside the Earth" problem:
- * WebXR can freely set camera.position for head tracking,
- * while the rig.position keeps the user at the correct distance.
- */
+/** Positions vrCameraRig using spherical coords so user is always OUTSIDE the Earth */
 function updateRigPosition() {
-    const cosP = Math.cos(rigRotX);
+    const cp = Math.cos(rigRotX);
     vrCameraRig.position.set(
-        vrZoom * Math.sin(rigRotY) * cosP,
+        vrZoom * Math.sin(rigRotY) * cp,
         vrZoom * Math.sin(rigRotX),
-        vrZoom * Math.cos(rigRotY) * cosP
+        vrZoom * Math.cos(rigRotY) * cp
     );
     vrCameraRig.lookAt(0, 0, 0);
 }
@@ -307,9 +334,7 @@ function updateRigPosition() {
 //  RENDER LOOP
 // ════════════════════════════════════════
 function render() {
-    const presenting = renderer.xr.isPresenting;
-
-    // Live clock
+    // ── Live clock ──
     if (isLive) {
         const now = new Date();
         const ys = new Date(now.getFullYear(), 0, 0);
@@ -322,26 +347,37 @@ function render() {
         }
     }
 
-    // Daily rotation
+    // ── Daily rotation ──
     rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
 
-    if (presenting) {
+    // ── VR mode ──
+    if (isInVR) {
         handleVRInput();
-        updateRigPosition(); // spherical positioning — always outside the Earth
+        updateRigPosition();
     } else {
-        vrCameraRig.position.set(0, 0, 0);
-        vrCameraRig.rotation.set(0, 0, 0);
+        // Desktop mode — OrbitControls handles the camera
         if (controls) controls.update();
     }
 
-    // Update sun & DOM only when data changed
+    // ── Update data only when changed ──
     if (hudDirty) {
         updateSunPosition();
         syncDOM();
         hudDirty = false;
     }
 
+    // ── Cloud drift ──
     if (clouds) clouds.rotation.y += 0.0001;
+
+    // ── Debug (every 300 frames ≈ every 5 seconds) ──
+    debugCounter++;
+    if (debugCounter % 300 === 0) {
+        console.log('[IAstronaut] cam pos:', camera.position.toArray().map(v => v.toFixed(1)),
+            '| earthGroup children:', earthGroup.children.length,
+            '| VR:', isInVR,
+            '| rig pos:', vrCameraRig.position.toArray().map(v => v.toFixed(1)));
+    }
+
     renderer.render(scene, camera);
 }
 
@@ -367,18 +403,18 @@ function updateSunPosition() {
 function syncDOM() {
     const date = new Date(new Date().getFullYear(), 0);
     date.setDate(Math.floor(manualDay));
-
     if (uiDate) uiDate.innerText = date.toLocaleDateString();
+
     const h = Math.floor(manualHour);
     const m = Math.floor((manualHour % 1) * 60);
-    if (uiTime) uiTime.innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:00 UTC`;
-    if (uiSunCoords) uiSunCoords.innerText = `Decl. Solar: ${solarDeclination.toFixed(2)}°`;
+    if (uiTime) uiTime.innerText = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0') + ':00 UTC';
+    if (uiSunCoords) uiSunCoords.innerText = 'Decl. Solar: ' + solarDeclination.toFixed(2) + '\u00b0';
 
-    if (daySlider)  daySlider.value  = manualDay;
+    if (daySlider) daySlider.value = manualDay;
     if (hourSlider) hourSlider.value = manualHour;
 
     if (viewDayText) viewDayText.innerText = isLive ? 'Hoy' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')} UTC`;
+    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0') + ' UTC';
 
     if (liveBtn && manualBtn) {
         liveBtn.classList.toggle('active', isLive);
@@ -404,19 +440,27 @@ function createEarth() {
         })
     );
     rotationGroup.add(earth);
+    console.log('[IAstronaut] Earth created at origin, radius=100');
 
     clouds = new THREE.Mesh(
         new THREE.SphereGeometry(101, 32, 32),
-        new THREE.MeshPhongMaterial({ map: ld.load(TEXTURES.clouds), transparent: true, opacity: 0.4, depthWrite: false })
+        new THREE.MeshPhongMaterial({
+            map: ld.load(TEXTURES.clouds),
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false
+        })
     );
     rotationGroup.add(clouds);
 }
 
 function createCelestialGuides() {
-    earthGroup.add(new THREE.Mesh(
+    const axis = new THREE.Mesh(
         new THREE.CylinderGeometry(0.5, 0.5, 500, 8),
         new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.3 })
-    ));
+    );
+    earthGroup.add(axis);
+
     const eq = new THREE.Mesh(
         new THREE.TorusGeometry(105, 0.4, 8, 80),
         new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 })
@@ -430,15 +474,19 @@ function createStars() {
     for (let i = 0; i < STAR_COUNT; i++) {
         const t = Math.random() * Math.PI * 2;
         const p = Math.acos(2 * Math.random() - 1);
-        v[i*3]   = CELESTIAL_R * Math.sin(p) * Math.cos(t);
-        v[i*3+1] = CELESTIAL_R * Math.sin(p) * Math.sin(t);
-        v[i*3+2] = CELESTIAL_R * Math.cos(p);
+        v[i * 3] = CELESTIAL_R * Math.sin(p) * Math.cos(t);
+        v[i * 3 + 1] = CELESTIAL_R * Math.sin(p) * Math.sin(t);
+        v[i * 3 + 2] = CELESTIAL_R * Math.cos(p);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(v, 3));
     starField = new THREE.Points(g, new THREE.PointsMaterial({
-        color: 0xffffff, size: 1.5, sizeAttenuation: false,
-        transparent: true, opacity: 0.8, depthWrite: false
+        color: 0xffffff,
+        size: 1.5,
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false
     }));
     scene.add(starField);
 }
@@ -458,9 +506,9 @@ function createCelestialMarkers() {
 //  DOM LISTENERS & RESIZE
 // ════════════════════════════════════════
 function setupDOMListeners() {
-    if (liveBtn)   liveBtn.addEventListener('click', () => { isLive = true; hudDirty = true; });
+    if (liveBtn) liveBtn.addEventListener('click', () => { isLive = true; hudDirty = true; });
     if (manualBtn) manualBtn.addEventListener('click', () => { isLive = false; hudDirty = true; });
-    if (daySlider)  daySlider.addEventListener('input', e => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
+    if (daySlider) daySlider.addEventListener('input', e => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
     if (hourSlider) hourSlider.addEventListener('input', e => { manualHour = parseFloat(e.target.value); isLive = false; hudDirty = true; });
 }
 
@@ -468,10 +516,15 @@ function onResize() {
     if (!camera || !renderer) return;
     const w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
-    w < 900 ? camera.setViewOffset(w, h, 0, -h * 0.4, w, h) : camera.clearViewOffset();
+    if (w < 900) {
+        camera.setViewOffset(w, h, 0, -h * 0.4, w, h);
+    } else {
+        camera.clearViewOffset();
+    }
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
 }
+
 
 // ════════════════════════════════════════
 init();
