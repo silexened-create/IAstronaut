@@ -30,8 +30,8 @@ let vrRotateY = 0;
 
 // Constantes
 const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
-const STAR_COUNT = 20000;
-const CELESTIAL_RADIUS = 30000; // Increased for VR stability
+const STAR_COUNT = 5000; // Reduced for Oculus stability
+const CELESTIAL_RADIUS = 15000; // Balanced radius for VR
 
 // UI References
 const container = document.getElementById('canvas-container');
@@ -50,6 +50,7 @@ let isLive = true;
 let manualDay = 81;
 let manualHour = 12;
 let solarDeclination = 0;
+let frameCount = 0; // Throttle counter for HUD updates
 
 function init() {
     if (!container) return;
@@ -73,10 +74,9 @@ function init() {
     vrUserOffset.add(camera);
 
     // 3. Renderer Setup
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true }); // antialias OFF for VR perf
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1)); // Cap pixel ratio for mobile VR
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.toneMapping = THREE.ReinhardToneMapping;
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
 
@@ -176,75 +176,64 @@ function setupXRSessionListeners() {
 
 function createVRInstructions() {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 360;
+    canvas.width = 256;
+    canvas.height = 180;
     const ctx = canvas.getContext('2d');
 
-    function update() {
-        ctx.fillStyle = 'rgba(10, 15, 30, 0.96)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+    // Draw ONCE — static content, no per-frame redraws
+    ctx.fillStyle = 'rgba(10, 15, 30, 0.96)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
 
-        ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 30px Orbitron, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('CONTROLES VR', canvas.width / 2, 50);
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('CONTROLES VR', canvas.width / 2, 28);
 
-        ctx.textAlign = 'left';
-        ctx.font = '22px Orbitron, sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText('• Joy Izq: Tiempo (X) / Zoom (Y)', 40, 100);
-        ctx.fillText('• Joy Der: Órbita / Vuelo Polar', 40, 140);
-        ctx.fillText('• Gatillos: Ajuste Preciso Zoom', 40, 180);
+    ctx.textAlign = 'left';
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('\u2022 Joy Izq: Tiempo (X) / Zoom (Y)', 15, 58);
+    ctx.fillText('\u2022 Joy Der: Orbita / Vuelo Polar', 15, 82);
+    ctx.fillText('\u2022 Gatillos: Ajuste Preciso Zoom', 15, 106);
 
-        ctx.font = '16px Orbitron, sans-serif';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
-        ctx.fillText('Mira tu mano para estas instrucciones', 40, 250);
-        
-        hudTexture.needsUpdate = true;
-    }
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+    ctx.fillText('Mira tu mano para instrucciones', 15, 145);
 
     const hudTexture = new THREE.CanvasTexture(canvas);
     const hudMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.32, 0.22),
+        new THREE.PlaneGeometry(0.28, 0.20),
         new THREE.MeshBasicMaterial({ map: hudTexture, transparent: true, side: THREE.DoubleSide })
     );
 
-    hudMesh.userData.update = update;
+    hudMesh.userData.update = null; // Static — no per-frame update
     return hudMesh;
 }
 
 function createVRTelemetry() {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
+    canvas.width = 256;
+    canvas.height = 64;
     const ctx = canvas.getContext('2d');
 
     function update() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Semi-transparent glass background
         ctx.fillStyle = 'rgba(10, 20, 40, 0.7)';
-        ctx.roundRect(10, 10, canvas.width - 20, canvas.height - 20, 20);
-        ctx.fill();
+        ctx.fillRect(4, 4, canvas.width - 8, canvas.height - 8);
         ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
 
         ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 24px Orbitron, sans-serif';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
-        
         const day = Math.floor(manualDay);
         const h = Math.floor(manualHour);
         const m = Math.floor((manualHour % 1) * 60);
-        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} UTC`;
-
-        ctx.fillText(`TELEMETRÍA: DÍA ${day} | ${timeStr}`, canvas.width / 2, 75);
-        
+        ctx.fillText('DIA ' + day + ' | ' + h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0') + ' UTC', canvas.width / 2, 38);
         telemetryTexture.needsUpdate = true;
     }
 
@@ -252,10 +241,11 @@ function createVRTelemetry() {
     const telemetryMaterial = new THREE.SpriteMaterial({ 
         map: telemetryTexture, 
         transparent: true,
-        opacity: 0.9 
+        opacity: 0.85,
+        depthWrite: false
     });
     const telemetrySprite = new THREE.Sprite(telemetryMaterial);
-    telemetrySprite.scale.set(0.6, 0.15, 1);
+    telemetrySprite.scale.set(0.5, 0.12, 1);
 
     telemetrySprite.userData.update = update;
     return telemetrySprite;
@@ -322,6 +312,7 @@ function syncVRToDOM() {
 
 function render() {
     const isPresenting = renderer.xr.isPresenting;
+    frameCount++;
 
     if (isLive) {
         const now = new Date();
@@ -330,34 +321,27 @@ function render() {
         manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
     }
 
-    // Rotación de la Tierra sobre su eje
     rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
 
     if (isPresenting) {
         handleVRInput();
 
-        // Aplicar rotaciones al RIG (pivote de órbita)
         vrCameraRig.rotation.order = 'YXZ';
         vrCameraRig.rotation.y = vrRotateY;
         vrCameraRig.rotation.x = vrRotateX;
-
-        // Aplicar distancia al OFFSET
         vrUserOffset.position.z = vrZoomValue;
 
-        // No forzamos cámara.position ni lookAt en XR para dejar que el tracking funcione
-        if (vrInstructionsHUD && vrInstructionsHUD.userData.update) {
-            vrInstructionsHUD.userData.update();
-        }
-        if (vrTelemetryHUD && vrTelemetryHUD.userData.update) {
+        // Throttle telemetry updates: every 10 frames (~6Hz at 72fps)
+        if (frameCount % 10 === 0 && vrTelemetryHUD && vrTelemetryHUD.userData.update) {
             vrTelemetryHUD.userData.update();
         }
     } else {
-        // En escritorio, reseteamos el rig para que OrbitControls no tenga conflictos
         vrCameraRig.rotation.set(0, 0, 0);
         if (controls) controls.update();
     }
 
-    updateSunDynamics();
+    // Throttle sun/UI updates to every 5th frame
+    if (frameCount % 5 === 0) updateSunDynamics();
     if (clouds) clouds.rotation.y += 0.0001;
 
     renderer.render(scene, camera);
@@ -435,7 +419,7 @@ function createStars() {
 
 function createEarth() {
     const loader = new THREE.TextureLoader();
-    const geometry = new THREE.SphereGeometry(100, 64, 64);
+    const geometry = new THREE.SphereGeometry(100, 48, 48); // Reduced from 64 for VR perf
     const material = new THREE.MeshPhongMaterial({
         map: loader.load(TEXTURES.earth),
         normalMap: loader.load(TEXTURES.normal),
@@ -447,8 +431,11 @@ function createEarth() {
     earth = new THREE.Mesh(geometry, material);
     rotationGroup.add(earth);
 
-    // Clouds
-    clouds = new THREE.Mesh(new THREE.SphereGeometry(101, 64, 64), new THREE.MeshPhongMaterial({ map: loader.load(TEXTURES.clouds), transparent: true, opacity: 0.4 }));
+    // Clouds (lower poly for VR perf)
+    clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(101, 32, 32), 
+        new THREE.MeshPhongMaterial({ map: loader.load(TEXTURES.clouds), transparent: true, opacity: 0.4, depthWrite: false })
+    );
     rotationGroup.add(clouds);
 }
 
