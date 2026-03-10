@@ -28,7 +28,7 @@ const TEXTURES = {
 
 // ── GLOBALS ──
 let scene, camera, renderer, controls;
-let vrCameraRig, controller1, controller2;
+let vrCameraRig, vrUserOffset, controller1, controller2;
 let earthAnchor, earthGroup, rotationGroup;
 let earth, clouds, sunLight, starField;
 let vrHUD;
@@ -40,6 +40,7 @@ let manualHour = 12;
 let solarDeclination = 0;
 let hudDirty = true;
 let isInVR = false;
+let frameCount = 0;
 
 // ── DOM REFERENCES ──
 const container = document.getElementById('canvas-container');
@@ -63,14 +64,18 @@ function init() {
     // 1. Scene
     scene = new THREE.Scene();
 
-    // 2. Camera Setup (Rig > Camera)
+    // 2. Camera Setup
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50000);
     camera.position.set(0, 0, 500);
 
-    // 3. VR Rig (Permanent Camera Parent)
+    // 3. VR Rig Hierarchy (Rig > Offset > Camera)
     vrCameraRig = new THREE.Group();
-    vrCameraRig.add(camera);
     scene.add(vrCameraRig);
+
+    vrUserOffset = new THREE.Group();
+    vrUserOffset.position.set(0, 0, 0); 
+    vrCameraRig.add(vrUserOffset);
+    vrUserOffset.add(camera);
 
     // 4. Renderer Setup
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -92,17 +97,23 @@ function init() {
         isInVR = true;
         vrCameraRig.position.set(0, 0, 0);
         vrCameraRig.rotation.set(0, 0, 0);
-        earthAnchor.position.set(0, 1.6, -2.5);
-        earthAnchor.scale.set(0.01, 0.01, 0.01);
+        
+        // Jerarquía de Rig para VR
+        vrUserOffset.position.set(0, 0, 500);
+        camera.position.set(0, 0, 0); 
         
         if (controls) controls.enabled = false;
         if (vrHUD) vrHUD.visible = true;
     });
     renderer.xr.addEventListener('sessionend', () => {
         isInVR = false;
-        earthAnchor.position.set(0, 0, 0);
-        earthAnchor.scale.set(1, 1, 1);
+        
+        // Restaurar para escritorio
+        vrUserOffset.position.set(0, 0, 0);
+        camera.position.set(0, 0, 500);
+        vrCameraRig.rotation.set(0, 0, 0);
         camera.lookAt(0, 0, 0);
+        
         if (controls) {
             controls.enabled = true;
             controls.update();
@@ -180,7 +191,7 @@ function createEarth() {
     rotationGroup.add(earth);
 
     clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(101.5, 48, 48),
+        new THREE.SphereGeometry(101.5, 32, 32),
         new THREE.MeshPhongMaterial({
             map: loader.load(TEXTURES.clouds),
             transparent: true,
@@ -287,41 +298,44 @@ function handleVRInput() {
         if (!source.gamepad) continue;
         const ax = source.gamepad.axes;
         const bt = source.gamepad.buttons;
+        const deadzone = 0.1;
 
         // ── MANO IZQUIERDA: Master de Tiempo ──
         if (source.handedness === 'left') {
-            // X: Hora (Rotación diaria)
-            if (Math.abs(ax[2]) > 0.1) {
-                manualHour = (manualHour + ax[2] * 0.2 + 24) % 24;
+            // X: Día del año (manualDay)
+            if (Math.abs(ax[2]) > deadzone) {
+                manualDay = THREE.MathUtils.clamp(manualDay + ax[2] * 0.5, 1, 365);
                 isLive = false;
                 hudDirty = true;
             }
-            // Y: Día (Ciclo estacional)
-            if (Math.abs(ax[3]) > 0.1) {
-                manualDay = THREE.MathUtils.clamp(manualDay + ax[3] * 0.4, 1, 365);
+            // Y: Hora del día (manualHour)
+            if (Math.abs(ax[3]) > deadzone) {
+                manualHour = (manualHour + ax[3] * 0.2 + 24) % 24;
                 isLive = false;
                 hudDirty = true;
             }
-            // Trigger: Zoom Out (Alejar)
-            if (bt[0] && bt[0].pressed) {
-                camera.position.z = THREE.MathUtils.clamp(camera.position.z + 10, 150, 5000);
+            // Trigger: Zoom Out (Alejar) analógico
+            if (bt[0] && bt[0].value > 0.05) {
+                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z + bt[0].value * 8, 150, 5000);
             }
         }
 
         // ── MANO DERECHA: Exploración Espacial ──
         if (source.handedness === 'right') {
             // Joystick controla órbita del usuario
-            if (Math.abs(ax[2]) > 0.1) vrCameraRig.rotation.y -= ax[2] * 0.04;
-            if (Math.abs(ax[3]) > 0.1) {
+            if (Math.abs(ax[2]) > deadzone) {
+                vrCameraRig.rotation.y -= ax[2] * 0.04;
+            }
+            if (Math.abs(ax[3]) > deadzone) {
                 vrCameraRig.rotation.x = THREE.MathUtils.clamp(
                     vrCameraRig.rotation.x - ax[3] * 0.04, 
                     -Math.PI / 2.1, 
                     Math.PI / 2.1
                 );
             }
-            // Trigger: Zoom In (Acercar)
-            if (bt[0] && bt[0].pressed) {
-                camera.position.z = THREE.MathUtils.clamp(camera.position.z - 10, 150, 5000);
+            // Trigger: Zoom In (Acercar) analógico
+            if (bt[0] && bt[0].value > 0.05) {
+                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z - bt[0].value * 8, 150, 5000);
             }
         }
     }
@@ -352,12 +366,19 @@ function render() {
         if (controls) controls.update();
     }
 
+    frameCount++;
+
     // Scientific Logic Updates
     if (hudDirty) {
         updateSunDynamics();
         syncDOM();
-        if (vrHUD && vrHUD.userData.update) vrHUD.userData.update();
+        if (vrHUD && vrHUD.userData.update) vrHUD.userData.queuedUpdate = true;
         hudDirty = false;
+    }
+
+    if (vrHUD && vrHUD.userData.queuedUpdate && frameCount % 15 === 0) {
+        vrHUD.userData.update();
+        vrHUD.userData.queuedUpdate = false;
     }
 
     if (clouds) clouds.rotation.y += 0.0001;
