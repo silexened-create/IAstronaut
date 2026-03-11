@@ -1,4 +1,7 @@
 import { speak } from './tts.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 const BASE_URL = "https://iastronaut.onrender.com";
 
@@ -39,6 +42,50 @@ const imagesMap = {
     "Más allá": "mas_alla.gif",
     "Cinturón de Kuiper": "kuiper_belt.png"
 };
+
+// --- WEBXR STATE & MAPS ---
+let scene, camera, renderer;
+let currentPlanetModel = null;
+let planetGroup;
+let starField, starVerticesBase;
+let vrHUD;
+let instructionsVisible = true;
+let controller1, controller2;
+let prevButtonState = { A: false, B: false, X: false, Y: false };
+let labelMesh = null;
+let animTime = 0;
+
+// Audio Espacial & Transiciones
+let positionalAudio, audioListener;
+let isWarping = false;
+let warpProgress = 0;
+let pendingChapterIndex = null;
+let currentLoadedTitle = "";
+
+const modelMap = {
+    "Introducción": "solar_system_animation.glb",
+    "El Sol": "sun.glb",
+    "Mercurio": "mercury.glb",
+    "Venus": "venus.glb",
+    "La Tierra": "earth.glb",
+    "Marte": "mars.glb",
+    "Júpiter": "jupiter.glb",
+    "Saturno": "saturn.glb",
+    "Urano": "uranus.glb",
+    "Neptuno": "neptune.glb",
+    "Plutón": "pluton.glb"
+};
+
+const manager = new THREE.LoadingManager();
+manager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) loadingScreen.classList.remove('hidden');
+};
+manager.onLoad = function ( ) {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) loadingScreen.classList.add('hidden');
+};
+const gltfLoader = new GLTFLoader(manager);
 
 /**
  * 1. CARGAR DATOS Y GENERAR TRANSCRIPCIÓN
@@ -158,7 +205,9 @@ function loadChapter(index, autoPlay = true) {
     });
 
     if (autoPlay) {
-        elements.audio.play();
+        elements.audio.play()
+            .then(() => { if (!positionalAudio.isPlaying) positionalAudio.play(); })
+            .catch(e => console.log("Auto-play prevenido:", e));
     }
 }
 
@@ -231,6 +280,17 @@ function updateVisualAssets(title) {
     elements.tituloCap.innerText = title;
     const imgFile = imagesMap[title] || "solar_system.gif";
     elements.gifPlaneta.src = `Image/${imgFile}`;
+    
+    // Iniciar el Salto Espacial (Warp) si estamos en WebXR
+    if(renderer && renderer.xr.isPresenting) {
+        if (!isWarping && title !== currentLoadedTitle) {
+            isWarping = true;
+            warpProgress = 0;
+            pendingChapterIndex = currentChapterIndex;
+        }
+    } else {
+        loadPlanetModel(title);
+    }
 }
 
 /**
@@ -304,6 +364,352 @@ window.procesarPregunta = processQuestion;
 window.saltarA = (index) => loadChapter(index);
 
 
-document.addEventListener('DOMContentLoaded', loadMissionLog);
+document.addEventListener('DOMContentLoaded', () => {
+    loadMissionLog();
+    initVR();
+});
+
+// --- WEBXR ENGINE ---
+function initVR() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1.6, 0); 
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    
+    renderer.domElement.style.position = 'fixed';
+    renderer.domElement.style.top = '0';
+    renderer.domElement.style.left = '0';
+    renderer.domElement.style.zIndex = '-1';
+    document.body.appendChild(renderer.domElement);
+
+    const vrBtn = VRButton.createButton(renderer);
+    vrBtn.style.zIndex = '9999';
+    vrBtn.style.position = 'absolute';
+    vrBtn.style.bottom = '20px';
+    document.body.appendChild(vrBtn);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(5, 5, 5);
+    scene.add(dirLight);
+
+    planetGroup = new THREE.Group();
+    planetGroup.position.set(0, 1.6, -3); 
+    scene.add(planetGroup);
+
+    // Audio Espacial WebXR
+    audioListener = new THREE.AudioListener();
+    camera.add(audioListener);
+
+    createStars();
+    createVRHUD();
+    setupControllers();
+
+    // Vincular PositionalAudio al elemento HTML <audio>
+    positionalAudio = new THREE.PositionalAudio(audioListener);
+    positionalAudio.setMediaElementSource(elements.audio);
+    positionalAudio.setRefDistance(1.5);
+    positionalAudio.setDirectionalCone(180, 230, 0.2); // El sonido va atenuándose si no miramos el HUD
+    vrHUD.add(positionalAudio);
+
+    renderer.setAnimationLoop(renderVR);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+function createStars() {
+    starVerticesBase = [];
+    const vertices = [];
+    for ( let i = 0; i < 3000; i ++ ) {
+        const x = THREE.MathUtils.randFloatSpread( 200 );
+        const y = THREE.MathUtils.randFloatSpread( 200 );
+        const z = THREE.MathUtils.randFloatSpread( 200 );
+        if(Math.sqrt(x*x + y*y + z*z) < 10) continue;
+        starVerticesBase.push( x, y, z );
+        vertices.push( x, y, z );
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+    const material = new THREE.PointsMaterial( { color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8 } );
+    starField = new THREE.Points( geometry, material );
+    scene.add( starField );
+}
+
+function loadPlanetModel(title) {
+    if (currentPlanetModel) {
+        planetGroup.remove(currentPlanetModel);
+        currentPlanetModel.traverse((child) => {
+            if (child.isMesh) {
+                child.geometry.dispose();
+                if (child.material) {
+                    if (child.material.isMaterial) {
+                        cleanMaterial(child.material);
+                    } else {
+                        for (const material of child.material) cleanMaterial(material);
+                    }
+                }
+            }
+        });
+        currentPlanetModel = null;
+    }
+
+    const modelFile = modelMap[title];
+    if (!modelFile) {
+        if (labelMesh) {
+            planetGroup.remove(labelMesh);
+            labelMesh.geometry.dispose();
+            labelMesh.material.map.dispose();
+            labelMesh.material.dispose();
+            labelMesh = null;
+        }
+        return; 
+    }
+
+    const loadingText = document.getElementById('loading-text');
+    if (loadingText) loadingText.innerText = `Sincronizando con ${title}...`;
+    
+    gltfLoader.load(`models/${modelFile}`, (gltf) => {
+        currentPlanetModel = gltf.scene;
+        // Restaurar escala y opacidad
+        currentPlanetModel.scale.set(1, 1, 1);
+        planetGroup.add(currentPlanetModel);
+        updatePlanetLabel(title);
+        currentLoadedTitle = title;
+    }, undefined, (error) => {
+        console.error("Error cargando el modelo:", error);
+    });
+}
+
+function cleanMaterial(material) {
+    material.dispose();
+    if (material.map) material.map.dispose();
+    if (material.lightMap) material.lightMap.dispose();
+    if (material.bumpMap) material.bumpMap.dispose();
+    if (material.normalMap) material.normalMap.dispose();
+    if (material.specularMap) material.specularMap.dispose();
+    if (material.envMap) material.envMap.dispose();
+}
+
+function updatePlanetLabel(title) {
+    if(labelMesh) {
+        planetGroup.remove(labelMesh);
+        labelMesh.geometry.dispose();
+        labelMesh.material.map.dispose();
+        labelMesh.material.dispose();
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.font = 'bold 60px Orbitron, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 15;
+    ctx.fillText(title.toUpperCase(), canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+    const geometry = new THREE.PlaneGeometry(1.5, 0.375);
+    
+    labelMesh = new THREE.Mesh(geometry, material);
+    labelMesh.position.set(0, -1.2, 0); 
+    planetGroup.add(labelMesh);
+}
+
+function createVRHUD() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 280;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = 'rgba(8, 12, 32, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, canvas.width-8, canvas.height-8);
+    
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 28px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillText('INSTRUCCIONES VR:', canvas.width/2, 50);
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('• Mano Der (A): Siguiente Planeta', 40, 110);
+    ctx.fillText('• Mano Der (B): Planeta Anterior', 40, 150);
+    ctx.fillText('• Mano Izq (X): Reiniciar Audio', 40, 190);
+    ctx.fillText('• Mano Izq (Y): Ocultar Panel', 40, 230);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    vrHUD = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.8, 0.4375),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide })
+    );
+    vrHUD.position.set(-1.5, 1.5, -2);
+    vrHUD.rotation.y = Math.PI / 6;
+    vrHUD.visible = true;
+    scene.add(vrHUD);
+}
+
+function setupControllers() {
+    controller1 = renderer.xr.getController(0); 
+    scene.add(controller1);
+    
+    controller2 = renderer.xr.getController(1); 
+    scene.add(controller2);
+}
+
+function triggerHaptic(source, intensity, duration) {
+    if (source.gamepad && source.gamepad.hapticActuators && source.gamepad.hapticActuators.length > 0) {
+        source.gamepad.hapticActuators[0].pulse(intensity, duration);
+    }
+}
+
+function handleGamepads() {
+    const session = renderer.xr.getSession();
+    if (!session) return;
+
+    for (const source of session.inputSources) {
+        if (!source.gamepad) continue;
+        const bt = source.gamepad.buttons;
+        const ax = source.gamepad.axes;
+        
+        if (source.handedness === 'right') { 
+            const btnA = bt[4] && bt[4].pressed;
+            const btnB = bt[5] && bt[5].pressed;
+
+            if (btnA && !prevButtonState.A) {
+                if (currentChapterIndex + 1 < missionChapters.length) {
+                    triggerHaptic(source, 0.5, 100);
+                    loadChapter(currentChapterIndex + 1);
+                }
+            }
+            if (btnB && !prevButtonState.B) {
+                if (currentChapterIndex - 1 >= 0) {
+                    triggerHaptic(source, 0.5, 100);
+                    loadChapter(currentChapterIndex - 1);
+                }
+            }
+            
+            // Escalar "Introducción" con el Joystick Y (Index 3)
+            if (currentLoadedTitle === "Introducción" && planetGroup) {
+                if (Math.abs(ax[3]) > 0.1) {
+                    // Escala el grupo completo suavemente
+                    const scaleFactor = 1 - ax[3] * 0.02;
+                    const newScale = THREE.MathUtils.clamp(planetGroup.scale.x * scaleFactor, 0.1, 5);
+                    planetGroup.scale.set(newScale, newScale, newScale);
+                }
+            }
+            
+            prevButtonState.A = btnA;
+            prevButtonState.B = btnB;
+        }
+
+        if (source.handedness === 'left') { 
+            const btnX = bt[4] && bt[4].pressed;
+            const btnY = bt[5] && bt[5].pressed;
+
+            if (btnX && !prevButtonState.X) {
+                elements.audio.currentTime = 0;
+            }
+            if (btnY && !prevButtonState.Y) {
+                instructionsVisible = !instructionsVisible;
+                vrHUD.visible = instructionsVisible;
+            }
+            prevButtonState.X = btnX;
+            prevButtonState.Y = btnY;
+        }
+    }
+}
+
+function updateWarpEffect() {
+    if (!isWarping) return;
+
+    warpProgress += 0.015;
+
+    // Fase 1: Acelerar (Estirar estrellas en Z)
+    if (warpProgress < 1.0) {
+        const positions = starField.geometry.attributes.position.array;
+        for (let i = 0; i < 3000; i++) {
+            // Estirar z hacia la cámara (hacerlo negativo respecto al ojo)
+            positions[i*3 + 2] = starVerticesBase[i*3 + 2] + (warpProgress * 50 * Math.sign(starVerticesBase[i*3 + 2]));
+        }
+        starField.geometry.attributes.position.needsUpdate = true;
+        
+        // Fase 1b: Opacar planeta actual y HUD durante salto
+        if (planetGroup) planetGroup.visible = false;
+        if (vrHUD) vrHUD.visible = false;
+        
+    } else if (warpProgress >= 1.0 && warpProgress < 1.02) {
+        // Cargar el modelo exactamente a la mitad del salto
+        const title = missionChapters[pendingChapterIndex].titulo;
+        loadPlanetModel(title);
+        
+    } else if (warpProgress >= 1.02 && warpProgress < 2.0) {
+        // Fase 2: Desacelerar estrellas
+        const falloff = 2.0 - warpProgress;
+        const positions = starField.geometry.attributes.position.array;
+        for (let i = 0; i < 3000; i++) {
+            positions[i*3 + 2] = starVerticesBase[i*3 + 2] + (falloff * 50 * Math.sign(starVerticesBase[i*3 + 2]));
+        }
+        starField.geometry.attributes.position.needsUpdate = true;
+        
+    } else {
+        // Fin de warp
+        isWarping = false;
+        if (planetGroup) {
+            planetGroup.visible = true;
+            // Reset scale si no estamos en Introducción
+            if (currentLoadedTitle !== "Introducción") {
+                 planetGroup.scale.set(1, 1, 1);
+            }
+        }
+        if (vrHUD) vrHUD.visible = instructionsVisible;
+        
+        // Restaurar array original de estrellas
+        const positions = starField.geometry.attributes.position.array;
+        for (let i = 0; i < 3000; i++) {
+            positions[i*3 + 0] = starVerticesBase[i*3 + 0];
+            positions[i*3 + 1] = starVerticesBase[i*3 + 1];
+            positions[i*3 + 2] = starVerticesBase[i*3 + 2];
+        }
+        starField.geometry.attributes.position.needsUpdate = true;
+    }
+}
+
+function renderVR() {
+    if (renderer.xr.isPresenting) {
+        handleGamepads();
+        updateWarpEffect();
+    }
+    
+    if (currentPlanetModel && !isWarping) {
+        currentPlanetModel.rotation.y += 0.002;
+    }
+    
+    if (labelMesh) {
+        animTime += 0.02;
+        labelMesh.position.y = -1.2 + Math.sin(animTime) * 0.05;
+    }
+
+    renderer.render(scene, camera);
+}
 
 
