@@ -146,7 +146,7 @@ function init() {
     createCelestialGuides();
 
     // 9. Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6)); // Aumentado para ver la cara oculta de la tierra
+    scene.add(new THREE.AmbientLight(0x223344, 0.15)); // Luz tenue para distinguir la sombra sin perder oscuridad
     sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     scene.add(sunLight);
     scene.add(sunLight.target);
@@ -304,13 +304,13 @@ function handleVRInput() {
         if (source.handedness === 'left') {
             // X: Día del año (manualDay)
             if (Math.abs(ax[2]) > deadzone) {
-                manualDay = THREE.MathUtils.clamp(manualDay + ax[2] * 0.5, 1, 365);
+                manualDay = THREE.MathUtils.clamp(manualDay + ax[2] * 0.15, 1, 365);
                 isLive = false;
                 hudDirty = true;
             }
             // Y: Hora del día (manualHour)
             if (Math.abs(ax[3]) > deadzone) {
-                manualHour = (manualHour + ax[3] * 0.2 + 24) % 24;
+                manualHour = (manualHour + ax[3] * 0.04 + 24) % 24;
                 isLive = false;
                 hudDirty = true;
             }
@@ -325,11 +325,11 @@ function handleVRInput() {
         if (source.handedness === 'right') {
             // Joystick controla órbita del usuario
             if (Math.abs(ax[2]) > deadzone) {
-                vrCameraRig.rotation.y -= ax[2] * 0.04;
+                vrCameraRig.rotation.y -= ax[2] * 0.015;
             }
             if (Math.abs(ax[3]) > deadzone) {
                 vrCameraRig.rotation.x = THREE.MathUtils.clamp(
-                    vrCameraRig.rotation.x - ax[3] * 0.04, 
+                    vrCameraRig.rotation.x - ax[3] * 0.015, 
                     -Math.PI / 2.1, 
                     Math.PI / 2.1
                 );
