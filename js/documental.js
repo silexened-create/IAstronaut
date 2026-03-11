@@ -57,6 +57,7 @@ let animTime = 0;
 
 // Audio Espacial & Transiciones
 let positionalAudio, audioListener;
+let sunPointLight = null;
 let isWarping = false;
 let warpProgress = 0;
 let pendingChapterIndex = null;
@@ -417,6 +418,13 @@ function initVR() {
     positionalAudio.setDirectionalCone(180, 230, 0.2); // El sonido va atenuándose si no miramos el HUD
     vrHUD.add(positionalAudio);
 
+    // FIX AUTOPLAY EN OCULUS QUEST: Reanudar AudioContext al entrar en VR
+    renderer.xr.addEventListener('sessionstart', () => {
+        if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
+            audioListener.context.resume();
+        }
+    });
+
     renderer.setAnimationLoop(renderVR);
 
     window.addEventListener('resize', () => {
@@ -453,13 +461,19 @@ function loadPlanetModel(title) {
                 if (child.material) {
                     if (child.material.isMaterial) {
                         cleanMaterial(child.material);
-                    } else {
+                    } else if (Array.isArray(child.material)) {
                         for (const material of child.material) cleanMaterial(material);
                     }
                 }
             }
         });
         currentPlanetModel = null;
+    }
+
+    if (sunPointLight) {
+        planetGroup.remove(sunPointLight);
+        sunPointLight.dispose();
+        sunPointLight = null;
     }
 
     const modelFile = modelMap[title];
@@ -479,8 +493,43 @@ function loadPlanetModel(title) {
     
     gltfLoader.load(`models/${modelFile}`, (gltf) => {
         currentPlanetModel = gltf.scene;
-        // Restaurar escala y opacidad
-        currentPlanetModel.scale.set(1, 1, 1);
+
+        // Auto-Scale y Fix Visibilidad por material
+        currentPlanetModel.traverse((child) => {
+            if (child.isMesh) {
+                if (child.material) {
+                    // Fix anillos de saturno o mallas huecas
+                    if (child.material.isMaterial) child.material.side = THREE.DoubleSide;
+                    else if (Array.isArray(child.material)) child.material.forEach(m => m.side = THREE.DoubleSide);
+                }
+            }
+        });
+
+        // Restaurar posición y escala base dependiendo del cuerpo celeste
+        if (title === "Introducción") {
+            currentPlanetModel.scale.set(1, 1, 1);
+            currentPlanetModel.position.set(0, 0, -15);
+        } else if (title === "El Sol") {
+            currentPlanetModel.scale.set(0.05, 0.05, 0.05);
+            currentPlanetModel.position.set(0, 0, -20);
+            
+            sunPointLight = new THREE.PointLight(0xffffee, 2, 50);
+            sunPointLight.position.set(0, 0, -20);
+            planetGroup.add(sunPointLight);
+        } else {
+            // Escala dinámica (Fix Marte/Plutón pequeños)
+            const box = new THREE.Box3().setFromObject(currentPlanetModel);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            let scaleFact = 1.0;
+            if (maxDim > 0 && maxDim < 1.0) scaleFact = 4.0 / maxDim; // Expandir
+            if (maxDim > 6.0) scaleFact = 4.0 / maxDim;               // Achicar
+
+            currentPlanetModel.scale.set(scaleFact, scaleFact, scaleFact);
+            currentPlanetModel.position.set(0, 0, -3);
+        }
+
         planetGroup.add(currentPlanetModel);
         updatePlanetLabel(title);
         currentLoadedTitle = title;
