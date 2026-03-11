@@ -55,13 +55,14 @@ let prevButtonState = { A: false, B: false, X: false, Y: false };
 let labelMesh = null;
 let animTime = 0;
 
-// Audio Espacial & Transiciones
-let positionalAudio, audioListener;
+// Audio Global & Transiciones
+let globalAudio, audioListener;
 let sunPointLight = null;
 let isWarping = false;
 let warpProgress = 0;
 let pendingChapterIndex = null;
 let currentLoadedTitle = "";
+let clock = new THREE.Clock();
 
 const modelMap = {
     "Introducción": "solar_system_animation.glb",
@@ -70,11 +71,13 @@ const modelMap = {
     "Venus": "venus.glb",
     "La Tierra": "earth.glb",
     "Marte": "mars.glb",
+    "Cinturón de asteroides": "solar_system_custom.glb",
     "Júpiter": "jupiter.glb",
     "Saturno": "saturn.glb",
     "Urano": "uranus.glb",
     "Neptuno": "neptune.glb",
-    "Plutón": "pluton.glb"
+    "Plutón": "pluton.glb",
+    "Cinturón de Kuiper": "solar_system_custom.glb"
 };
 
 const manager = new THREE.LoadingManager();
@@ -207,7 +210,7 @@ function loadChapter(index, autoPlay = true) {
 
     if (autoPlay) {
         elements.audio.play()
-            .then(() => { if (!positionalAudio.isPlaying) positionalAudio.play(); })
+            .then(() => { if (!globalAudio.isPlaying) globalAudio.play(); })
             .catch(e => console.log("Auto-play prevenido:", e));
     }
 }
@@ -411,12 +414,9 @@ function initVR() {
     createVRHUD();
     setupControllers();
 
-    // Vincular PositionalAudio al elemento HTML <audio>
-    positionalAudio = new THREE.PositionalAudio(audioListener);
-    positionalAudio.setMediaElementSource(elements.audio);
-    positionalAudio.setRefDistance(1.5);
-    positionalAudio.setDirectionalCone(180, 230, 0.2); // El sonido va atenuándose si no miramos el HUD
-    vrHUD.add(positionalAudio);
+    // Vincular Global Audio al elemento HTML <audio>
+    globalAudio = new THREE.Audio(audioListener);
+    globalAudio.setMediaElementSource(elements.audio);
 
     // FIX AUTOPLAY EN OCULUS QUEST: Reanudar AudioContext al entrar en VR
     renderer.xr.addEventListener('sessionstart', () => {
@@ -505,19 +505,22 @@ function loadPlanetModel(title) {
             }
         });
 
-        // Restaurar posición y escala base dependiendo del cuerpo celeste
-        if (title === "Introducción") {
-            currentPlanetModel.scale.set(1, 1, 1);
-            currentPlanetModel.position.set(0, 0, -15);
-        } else if (title === "El Sol") {
-            currentPlanetModel.scale.set(0.05, 0.05, 0.05);
-            currentPlanetModel.position.set(0, 0, -20);
-            
-            sunPointLight = new THREE.PointLight(0xffffee, 2, 50);
-            sunPointLight.position.set(0, 0, -20);
-            planetGroup.add(sunPointLight);
-        } else {
-            // Escala dinámica (Fix Marte/Plutón pequeños)
+    // Restaurar posición y escala base dependiendo del cuerpo celeste
+    if (title === "Introducción") {
+        currentPlanetModel.scale.set(1, 1, 1);
+        currentPlanetModel.position.set(0, 0, -15);
+    } else if (title === "Cinturón de asteroides" || title === "Cinturón de Kuiper") {
+        currentPlanetModel.scale.set(2, 2, 2);
+        currentPlanetModel.position.set(0, -1.1, 0); // Rodea al usuario (camera.y es 1.6, por tanto y=0.5 global)
+    } else if (title === "El Sol") {
+        currentPlanetModel.scale.set(0.1, 0.1, 0.1);
+        currentPlanetModel.position.set(0, 0, -8);
+        
+        sunPointLight = new THREE.PointLight(0xffffee, 5, 100);
+        sunPointLight.position.set(0, 0, -8);
+        planetGroup.add(sunPointLight);
+    } else {
+        // Escala dinámica (Fix Marte/Plutón pequeños)
             const box = new THREE.Box3().setFromObject(currentPlanetModel);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
@@ -604,7 +607,7 @@ function createVRHUD() {
     ctx.fillText('• Mano Der (A): Siguiente Planeta', 40, 110);
     ctx.fillText('• Mano Der (B): Planeta Anterior', 40, 150);
     ctx.fillText('• Mano Izq (X): Reiniciar Audio', 40, 190);
-    ctx.fillText('• Mano Izq (Y): Ocultar Panel', 40, 230);
+    ctx.fillText('• Mano Izq (Y): Play/Pause Audio', 40, 230);
 
     const texture = new THREE.CanvasTexture(canvas);
     vrHUD = new THREE.Mesh(
@@ -679,8 +682,11 @@ function handleGamepads() {
                 elements.audio.currentTime = 0;
             }
             if (btnY && !prevButtonState.Y) {
-                instructionsVisible = !instructionsVisible;
-                vrHUD.visible = instructionsVisible;
+                if (elements.audio.paused) {
+                    elements.audio.play();
+                } else {
+                    elements.audio.pause();
+                }
             }
             prevButtonState.X = btnX;
             prevButtonState.Y = btnY;
@@ -750,7 +756,15 @@ function renderVR() {
     }
     
     if (currentPlanetModel && !isWarping) {
-        currentPlanetModel.rotation.y += 0.002;
+        // Rotación global más rápida sobre su propio eje Y
+        currentPlanetModel.rotation.y += 0.005;
+        
+        // Órbita / Balanceo si no es el Sistema Solar completo
+        if (currentLoadedTitle !== "Introducción" && currentLoadedTitle !== "Cinturón de asteroides" && currentLoadedTitle !== "Cinturón de Kuiper" && currentLoadedTitle !== "El Sol") {
+            const temp = clock.getElapsedTime() * 0.2;
+            currentPlanetModel.position.x = Math.cos(temp) * 0.5;
+            currentPlanetModel.position.z = -3 + Math.sin(temp) * 0.5;
+        }
     }
     
     if (labelMesh) {
