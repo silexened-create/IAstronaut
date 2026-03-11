@@ -146,7 +146,7 @@ function init() {
     createCelestialGuides();
 
     // 9. Lighting
-    scene.add(new THREE.AmbientLight(0x445577, 1.0));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6)); // Aumentado para ver la cara oculta de la tierra
     sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     scene.add(sunLight);
     scene.add(sunLight.target);
@@ -235,10 +235,10 @@ function createCelestialGuides() {
 // ════════════════════════════════════════
 function setupVRControllers() {
     controller1 = renderer.xr.getController(0);
-    scene.add(controller1);
+    vrUserOffset.add(controller1);
 
     controller2 = renderer.xr.getController(1);
-    scene.add(controller2);
+    vrUserOffset.add(controller2);
 
     const w = 512, h = 420;
     const canvas = document.createElement('canvas');
@@ -281,7 +281,7 @@ function setupVRControllers() {
         ctx.font = '20px sans-serif';
         ctx.fillText('• Mano Izq: Viaje en el Tiempo', 40, 300);
         ctx.fillText('• Mano Der: Exploración Espacial', 40, 340);
-        ctx.fillText('• Gatillos: Zoom +/-', 40, 380);
+        ctx.fillText('• Gatillos o Grip: Zoom +/-', 40, 380);
 
         tex.needsUpdate = true;
     };
@@ -314,9 +314,10 @@ function handleVRInput() {
                 isLive = false;
                 hudDirty = true;
             }
-            // Trigger: Zoom Out (Alejar) analógico
-            if (bt[0] && bt[0].value > 0.05) {
-                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z + bt[0].value * 8, 150, 5000);
+            // Trigger o Grip: Zoom Out (Alejar) analógico
+            const zoomOutVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
+            if (zoomOutVal > 0.05) {
+                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z + zoomOutVal * 10, 150, 5000);
             }
         }
 
@@ -333,9 +334,10 @@ function handleVRInput() {
                     Math.PI / 2.1
                 );
             }
-            // Trigger: Zoom In (Acercar) analógico
-            if (bt[0] && bt[0].value > 0.05) {
-                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z - bt[0].value * 8, 150, 5000);
+            // Trigger o Grip: Zoom In (Acercar) analógico
+            const zoomInVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
+            if (zoomInVal > 0.05) {
+                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z - zoomInVal * 10, 150, 5000);
             }
         }
     }
