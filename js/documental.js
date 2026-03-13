@@ -210,7 +210,11 @@ function loadChapter(index, autoPlay = true) {
 
     if (autoPlay) {
         elements.audio.play()
-            .then(() => { if (!globalAudio.isPlaying) globalAudio.play(); })
+            .then(() => { 
+                if (renderer && renderer.xr.isPresenting && globalAudio && !globalAudio.isPlaying) {
+                    globalAudio.play(); 
+                }
+            })
             .catch(e => console.log("Auto-play prevenido:", e));
     }
 }
@@ -416,10 +420,18 @@ function initVR() {
 
     // Vincular Global Audio al elemento HTML <audio>
     globalAudio = new THREE.Audio(audioListener);
-    globalAudio.setMediaElementSource(elements.audio);
 
     // FIX AUTOPLAY EN OCULUS QUEST: Reanudar AudioContext al entrar en VR
     renderer.xr.addEventListener('sessionstart', () => {
+        // Spatialization takes control only in VR
+        globalAudio.setMediaElementSource(elements.audio);
+        if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
+            audioListener.context.resume();
+        }
+    });
+
+    // Desbloquear audio contexto en modo 2D nativo mediante interacción de usuario (click)
+    document.addEventListener('click', () => {
         if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
             audioListener.context.resume();
         }
