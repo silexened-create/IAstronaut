@@ -56,19 +56,13 @@ let labelMesh = null;
 let animTime = 0;
 
 // Audio Global & Transiciones
-let globalAudio, audioListener, positionalAudio;
-const audioLoader = new THREE.AudioLoader();
+let globalAudio, audioListener;
 let sunPointLight = null;
 let isWarping = false;
 let warpProgress = 0;
 let pendingChapterIndex = null;
 let currentLoadedTitle = "";
 let clock = new THREE.Clock();
-
-// Para sincronización (reemplaza a elements.audio.currentTime)
-let currentAudioTime = 0;
-let isContextResumed = false;
-let currentAudioObj = null;
 
 const modelMap = {
     "Introducción": "solar_system_animation.glb",
@@ -197,86 +191,31 @@ function loadChapter(index, autoPlay = true) {
 
     console.log(`📡 [MISIÓN] Cambiando a: ${cap.titulo} -> ${cap.audio_source}`);
 
-    // Update UI
+    // Actualizar Audio
+    elements.audio.src = cap.audio_source;
+    elements.audio.load();
+
+    // Actualizar UI
     updateVisualAssets(cap.titulo);
 
-    // Hide other transcripts, show current
+    // Mostrar solo la transcripción del capítulo actual
     document.querySelectorAll('.capitulo-transcripcion').forEach(div => div.style.display = 'none');
     const targetDiv = document.getElementById(`cap-text-${index}`);
     if (targetDiv) targetDiv.style.display = 'block';
 
-    // Highlight menu button
+    // Resaltar botón activo en el menú
     document.querySelectorAll('#menu-planetas .btn-destino').forEach((btn, i) => {
         btn.classList.toggle('activo', i === index);
     });
 
-    // Detener audio existente si lo hay
-    if (currentAudioObj && currentAudioObj.isPlaying) {
-        currentAudioObj.stop();
-    }
-    
-    // Choose correct audio instance based on context (global vs spatial)
-    // We default to globalAudio, if we have a spatial target, we could switch to positionalAudio
-    currentAudioObj = globalAudio; 
-
-    // Helper loading function with fallback
-    const loadAndPlayAudio = (sourcePath, isFallback = false) => {
-        audioLoader.load(
-            sourcePath,
-            function (buffer) {
-                currentAudioObj.setBuffer(buffer);
-                currentAudioObj.setVolume(1.0);
-                
-                // Si es espacial, configurar
-                if (currentAudioObj instanceof THREE.PositionalAudio) {
-                    currentAudioObj.setRefDistance(20);
+    if (autoPlay) {
+        elements.audio.play()
+            .then(() => { 
+                if (renderer && renderer.xr.isPresenting && globalAudio && !globalAudio.isPlaying) {
+                    globalAudio.play(); 
                 }
-
-                if (autoPlay) {
-                   playCurrentAudio();
-                }
-            },
-            function (xhr) {
-                // Progress if needed
-            },
-            function (err) {
-                console.warn(`Error cargando audio: ${sourcePath}`);
-                // Si falla y terminó en .m4a, probar con .mp3
-                if (!isFallback && sourcePath.endsWith('.m4a')) {
-                    const fallbackPath = sourcePath.replace('.m4a', '.mp3');
-                    console.log(`📡 [REINTENTO] Intentando cargar versión fallback: ${fallbackPath}`);
-                    loadAndPlayAudio(fallbackPath, true);
-                }
-            }
-        );
-    };
-
-    if (globalAudio) {
-        loadAndPlayAudio(cap.audio_source);
-    }
-}
-
-function playCurrentAudio() {
-    if (!currentAudioObj || !currentAudioObj.buffer) return;
-
-    // Resumir contexto si no está activo
-    if (audioListener && audioListener.context.state === 'suspended') {
-        audioListener.context.resume().then(() => {
-            isContextResumed = true;
-            tryPlayObj();
-        });
-    } else {
-        tryPlayObj();
-    }
-}
-
-function tryPlayObj() {
-    try {
-        if (!currentAudioObj.isPlaying) {
-            currentAudioObj.play();
-        }
-    } catch (e) {
-        console.warn("Error reproduciendo audio:", e);
+            })
+            .catch(e => console.log("Auto-play prevenido:", e));
     }
 }
 
@@ -298,9 +237,7 @@ function injectUtilityButtons() {
     btnHub.style.borderColor = '#ff3c3c';
     btnHub.innerHTML = '🏠 CONTROL CENTRAL';
     btnHub.onclick = () => {
-        if (currentAudioObj && currentAudioObj.isPlaying) {
-            currentAudioObj.pause();
-        }
+        elements.audio.pause();
         location.href = 'index.html';
     };
 
@@ -313,64 +250,30 @@ function injectUtilityButtons() {
  * 2. MOTOR DE RESALTADO Y AUTO-ADVANCE (ZERO-BASE)
  */
 function initSyncEngine() {
-    // Sincronización se actualiza en el render loop.
-    // Usaremos requestAnimationFrame para mantener sincronizado el texto
-    
-    const updateSync = () => {
-        if (currentAudioObj && currentAudioObj.isPlaying) {
-            // THREE.Audio context devuelve el tiempo total de reproducción. No es perfecto para Pauses.
-            // Para mantener la precisión, actualizamos:
-            currentAudioTime = currentAudioObj.context.currentTime - currentAudioObj._startedAt;
-            
-            const now = currentAudioTime;
-            const currentCapDiv = document.getElementById(`cap-text-${currentChapterIndex}`);
-            if (currentCapDiv) {
-                const spans = currentCapDiv.querySelectorAll('.palabra');
+    elements.audio.ontimeupdate = () => {
+        // CERO-BASE: Ya no sumamos inicio_seg porque los archivos y el JSON están sincronizados a 0
+        const now = elements.audio.currentTime;
+        const currentCapDiv = document.getElementById(`cap-text-${currentChapterIndex}`);
+        if (!currentCapDiv) return;
 
-                spans.forEach(span => {
-                    const start = parseFloat(span.dataset.start);
-                    const end = parseFloat(span.dataset.end);
+        const spans = currentCapDiv.querySelectorAll('.palabra');
 
-                    if (now >= start && now <= end) {
-                        if (!span.classList.contains('highlight-word')) {
-                            currentCapDiv.querySelectorAll('.highlight-word').forEach(el => el.classList.remove('highlight-word'));
-                            span.classList.add('highlight-word');
-                            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-                });
-            }
+        spans.forEach(span => {
+            const start = parseFloat(span.dataset.start);
+            const end = parseFloat(span.dataset.end);
 
-            // Chequeo de fin improvisado si Three.Audio no detona un evento fácilmente:
-            if (currentAudioObj.buffer && now >= currentAudioObj.buffer.duration - 0.1) {
-                // Evita múltiples triggers
-                if (!currentAudioObj._endedFired) {
-                    currentAudioObj._endedFired = true;
-                    handleAudioEnded();
+            if (now >= start && now <= end) {
+                if (!span.classList.contains('highlight-word')) {
+                    currentCapDiv.querySelectorAll('.highlight-word').forEach(el => el.classList.remove('highlight-word'));
+                    span.classList.add('highlight-word');
+                    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
-        }
-        
-        requestAnimationFrame(updateSync);
+        });
     };
 
-    updateSync();
-    
-    // Add onEnded callback hook for THREE.Audio 
-    // Extendemos el método play para resetear el flag de fin de audio
-    const originalPlay = THREE.Audio.prototype.play;
-    THREE.Audio.prototype.play = function() {
-        this._endedFired = false;
-        
-        // Compensamos un desfase de inicio que tiene Web Audio
-        if(this.context) this._startedAt = this.context.currentTime;
-        if(this.offset) this._startedAt -= this.offset;
-        
-        originalPlay.call(this);
-    };
-
-    // Al terminar el audio, cargar el siguiente segmento
-    const handleAudioEnded = () => {
+    // AUTO-PLAY CHAIN: Al terminar el audio, cargar el siguiente segmento
+    elements.audio.onended = () => {
         console.log(`🏁 [FIN] Segmento terminado: ${missionChapters[currentChapterIndex].titulo}`);
         if (currentChapterIndex + 1 < missionChapters.length) {
             console.log("🚀 [AUTO-ADVANCE] Cargando siguiente etapa...");
@@ -405,10 +308,7 @@ async function processQuestion() {
     const question = elements.preguntaInput.value.trim();
     if (!question) return;
 
-    if (currentAudioObj && currentAudioObj.isPlaying) {
-        currentAudioObj.pause();
-    }
-    
+    elements.audio.pause();
     elements.chatDisplay.innerHTML += `<div class="chat-msg user-msg"><b>COMANDANTE:</b> ${question}</div>`;
 
     const loadingId = `load-${Date.now()}`;
@@ -418,12 +318,12 @@ async function processQuestion() {
 
     // Contexto basado en el segmento actual (tiempo relativo)
     const topic = missionChapters[currentChapterIndex].titulo;
-    const relativeTime = currentAudioTime.toFixed(2);
+    const relativeTime = elements.audio.currentTime.toFixed(2);
 
     // Extraer fragmento de texto reciente del capítulo actual
     const currentCapDiv = document.getElementById(`cap-text-${currentChapterIndex}`);
     const recentWords = Array.from(currentCapDiv.querySelectorAll('.palabra'))
-        .filter(s => parseFloat(s.dataset.end) <= currentAudioTime)
+        .filter(s => parseFloat(s.dataset.end) <= elements.audio.currentTime)
         .slice(-30)
         .map(s => s.innerText.trim())
         .join(" ");
@@ -518,36 +418,26 @@ function initVR() {
     createVRHUD();
     setupControllers();
 
-    // Instanciar reproductores Three.js
+    // Vincular Global Audio al elemento HTML <audio>
     globalAudio = new THREE.Audio(audioListener);
-    positionalAudio = new THREE.PositionalAudio(audioListener);
-    
-    // Asignar positionalAudio a algún elemento de la escena si fuera necesario
-    // planetGroup.add(positionalAudio); 
-    // currentAudioObj = globalAudio;
 
     // FIX AUTOPLAY EN OCULUS QUEST: Reanudar AudioContext al entrar en VR
     renderer.xr.addEventListener('sessionstart', () => {
+        // Spatialization takes control only in VR
+        globalAudio.setMediaElementSource(elements.audio);
         if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
-            audioListener.context.resume().then(() => { isContextResumed = true; });
+            audioListener.context.resume();
         }
     });
 
-    // Desbloquear audio contexto globalmente
+    // Desbloquear audio contexto en modo 2D nativo mediante interacción de usuario (click/touch)
     const unlockAudio = () => {
-        if (!isContextResumed && audioListener && audioListener.context && audioListener.context.state === 'suspended') {
-            audioListener.context.resume().then(() => {
-                isContextResumed = true;
-                console.log("AudioContext desbloqueado mediante interacción.");
-                // Retomar reproducción si había quedado pendiente
-                if (currentAudioObj && currentAudioObj.buffer && !currentAudioObj.isPlaying) {
-                    tryPlayObj();
-                }
-            });
+        if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
+            audioListener.context.resume();
         }
     };
-    document.addEventListener('click', unlockAudio, { once: true });
-    document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio, { passive: true });
 
     renderer.setAnimationLoop(renderVR);
 
@@ -803,18 +693,13 @@ function handleGamepads() {
             const btnY = bt[5] && bt[5].pressed;
 
             if (btnX && !prevButtonState.X) {
-                if (currentAudioObj && currentAudioObj.isPlaying) {
-                    currentAudioObj.stop();
-                    currentAudioObj.play();
-                }
+                elements.audio.currentTime = 0;
             }
             if (btnY && !prevButtonState.Y) {
-                if (currentAudioObj) {
-                    if (currentAudioObj.isPlaying) {
-                        currentAudioObj.pause();
-                    } else {
-                        playCurrentAudio();
-                    }
+                if (elements.audio.paused) {
+                    elements.audio.play().catch(e => console.warn("VR Play error:", e));
+                } else {
+                    elements.audio.pause();
                 }
             }
             prevButtonState.X = btnX;
