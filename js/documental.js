@@ -430,12 +430,14 @@ function initVR() {
         }
     });
 
-    // Desbloquear audio contexto en modo 2D nativo mediante interacción de usuario (click)
-    document.addEventListener('click', () => {
+    // Desbloquear audio contexto en modo 2D nativo mediante interacción de usuario (click/touch)
+    const unlockAudio = () => {
         if (audioListener && audioListener.context && audioListener.context.state === 'suspended') {
             audioListener.context.resume();
         }
-    });
+    };
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio, { passive: true });
 
     renderer.setAnimationLoop(renderVR);
 
@@ -695,7 +697,7 @@ function handleGamepads() {
             }
             if (btnY && !prevButtonState.Y) {
                 if (elements.audio.paused) {
-                    elements.audio.play();
+                    elements.audio.play().catch(e => console.warn("VR Play error:", e));
                 } else {
                     elements.audio.pause();
                 }
