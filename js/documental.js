@@ -466,6 +466,105 @@ function createStars() {
     scene.add( starField );
 }
 
+/**
+ * Normaliza un modelo 3D (GLTF/GLB) escalándolo a un tamaño objetivo y centrando su pivote.
+ * @param {THREE.Group|THREE.Object3D} model - El modelo cargado a normalizar.
+ * @param {string} title - El título o identificador del modelo para aplicar excepciones.
+ */
+function normalizeModel(model, title) {
+    // 1. Opciones por defecto y tamaño objetivo estándar
+    let targetSize = 2.0; // Tamaño estándar (puedes ajustar según tu escena)
+    let shouldNormalize = true;
+    let customPosition = new THREE.Vector3(0, 0, -3); // Posición estándar en VR
+
+    // 2. Sistema de Excepciones basado en el título
+    switch (title) {
+        case "Introducción":
+            // "Escena Completa": No normalizar, dejar tamaño original
+            shouldNormalize = false;
+            customPosition.set(0, 0, -15);
+            break;
+        case "Cinturón de asteroides":
+        case "Cinturón de Kuiper":
+            // Excepción de escala manual
+            shouldNormalize = false;
+            model.scale.set(2, 2, 2);
+            customPosition.set(0, -1.1, 0);
+            break;
+        case "El Sol":
+            // Excepción: Forzar tamaño específico
+            shouldNormalize = false;
+            model.scale.set(0.1, 0.1, 0.1);
+            customPosition.set(0, 0, -8);
+            
+            // Añadir luz específica para el sol
+            if (!sunPointLight) {
+                sunPointLight = new THREE.PointLight(0xffffee, 5, 100);
+                sunPointLight.position.copy(customPosition);
+                planetGroup.add(sunPointLight);
+            }
+            break;
+        // Puedes añadir más casos, ej:
+        // case "Anillos":
+        //    targetSize = 4.0;
+        //    break;
+    }
+
+    // 3. Normalización: Centrado Automático y Escalado Unificado
+    if (shouldNormalize) {
+        // Calcular la caja delimitadora (Bounding Box) actual del modelo
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // Encontrar la dimensión más grande (ancho, alto o profundidad)
+        const maxDim = Math.max(size.x, size.y, size.z);
+
+        // Si el modelo es muy pequeño o muy grande, evitar divisiones por cero
+        if (maxDim > 0) {
+            // Calcular el factor de escala necesario para alcanzar el targetSize
+            const scaleFactor = targetSize / maxDim;
+            model.scale.setScalar(scaleFactor);
+        }
+
+        // --- Recalcular la caja después de escalar para un centrado preciso ---
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+
+        // Desplazar (trasladar) la geometría para que el centro esté en (0, 0, 0) local
+        // Esto mueve la malla en relación a su punto pivote
+        model.position.x += (model.position.x - scaledCenter.x);
+        model.position.y += (model.position.y - scaledCenter.y);
+        model.position.z += (model.position.z - scaledCenter.z);
+    }
+
+    // 4. Posicionamiento Final en la Escena
+    // Colocar el pivote del modelo en la posición deseada
+    model.position.copy(customPosition);
+
+    // 5. Optimización de Materiales y Sombras
+    model.traverse((child) => {
+        if (child.isMesh) {
+            // Habilitar sombras
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            if (child.material) {
+                // Fix común para anillos huecos o modelos que requieren ser vistos por ambos lados
+                if (title === "Saturno" || title === "Urano") {
+                    if (child.material.isMaterial) {
+                        child.material.side = THREE.DoubleSide;
+                    } else if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.side = THREE.DoubleSide);
+                    }
+                }
+            }
+        }
+    });
+
+    return model;
+}
+
 function loadPlanetModel(title) {
     if (currentPlanetModel) {
         planetGroup.remove(currentPlanetModel);
@@ -519,33 +618,8 @@ function loadPlanetModel(title) {
             }
         });
 
-    // Restaurar posición y escala base dependiendo del cuerpo celeste
-    if (title === "Introducción") {
-        currentPlanetModel.scale.set(1, 1, 1);
-        currentPlanetModel.position.set(0, 0, -15);
-    } else if (title === "Cinturón de asteroides" || title === "Cinturón de Kuiper") {
-        currentPlanetModel.scale.set(2, 2, 2);
-        currentPlanetModel.position.set(0, -1.1, 0); // Rodea al usuario (camera.y es 1.6, por tanto y=0.5 global)
-    } else if (title === "El Sol") {
-        currentPlanetModel.scale.set(0.1, 0.1, 0.1);
-        currentPlanetModel.position.set(0, 0, -8);
-        
-        sunPointLight = new THREE.PointLight(0xffffee, 5, 100);
-        sunPointLight.position.set(0, 0, -8);
-        planetGroup.add(sunPointLight);
-    } else {
-        // Escala dinámica (Fix Marte/Plutón pequeños)
-            const box = new THREE.Box3().setFromObject(currentPlanetModel);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            
-            let scaleFact = 1.0;
-            if (maxDim > 0 && maxDim < 1.0) scaleFact = 4.0 / maxDim; // Expandir
-            if (maxDim > 6.0) scaleFact = 4.0 / maxDim;               // Achicar
-
-            currentPlanetModel.scale.set(scaleFact, scaleFact, scaleFact);
-            currentPlanetModel.position.set(0, 0, -3);
-        }
+        // Aplicar la normalización al modelo instanciado
+        normalizeModel(currentPlanetModel, title);
 
         planetGroup.add(currentPlanetModel);
         updatePlanetLabel(title);
