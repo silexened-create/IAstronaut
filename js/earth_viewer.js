@@ -42,6 +42,13 @@ let hudDirty = true;
 let isInVR = false;
 let frameCount = 0;
 
+// VR Orbit State
+let vrOrbitTheta = Math.PI / 2; // Horizontal angle
+let vrOrbitPhi = Math.PI / 2; // Vertical angle (Equator)
+let vrOrbitRadius = 500; // Distance
+let vrOrbitThetaVelocity = 0;
+let vrOrbitPhiVelocity = 0;
+
 // ── DOM REFERENCES ──
 const container = document.getElementById('canvas-container');
 const loadingScreen = document.getElementById('loading-screen');
@@ -95,12 +102,26 @@ function init() {
     // 5. XR Session Handlers
     renderer.xr.addEventListener('sessionstart', () => {
         isInVR = true;
-        vrCameraRig.position.set(0, 0, 0);
-        vrCameraRig.rotation.set(0, 0, 0);
         
-        // Jerarquía de Rig para VR
-        vrUserOffset.position.set(0, 0, 500);
-        camera.position.set(0, 0, 0); 
+        // Reset orbit parameters to initial state
+        vrOrbitTheta = Math.PI / 2;
+        vrOrbitPhi = Math.PI / 2;
+        vrOrbitRadius = 500; // Radio VR inicio en 500
+        vrOrbitThetaVelocity = 0;
+        vrOrbitPhiVelocity = 0;
+
+        vrUserOffset.position.set(0, 0, 0);
+        vrUserOffset.rotation.set(0, 0, 0);
+        camera.position.set(0, 0, 0);
+        
+        // Colocar Rig en coordenadas de órbita base
+        vrCameraRig.position.set(
+            vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta),
+            vrOrbitRadius * Math.cos(vrOrbitPhi),
+            vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta)
+        );
+        // Apuntar Rig al centro UNA SOLA VEZ
+        vrCameraRig.lookAt(0, 0, 0);
         
         if (controls) controls.enabled = false;
         if (vrHUD) vrHUD.visible = true;
@@ -156,10 +177,11 @@ function init() {
     setupDOMListeners();
 
     // Initial Sync
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 0);
-    manualDay = Math.floor((now - start) / 86400000);
-    manualHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+    const nowMs = Date.now();
+    const dateObj = new Date(nowMs);
+    const startYearMs = Date.UTC(dateObj.getUTCFullYear(), 0, 0);
+    manualDay = Math.floor((nowMs - startYearMs) / 86400000);
+    manualHour = (nowMs % 86400000) / 3600000;
     hudDirty = true;
 
     renderer.setAnimationLoop(render);
@@ -188,6 +210,8 @@ function createEarth() {
             shininess: 5
         })
     );
+    // Alinear textura para que el Meridiano de Greenwich quede frente al Sol
+    earth.rotation.y = Math.PI / 2;
     rotationGroup.add(earth);
 
     clouds = new THREE.Mesh(
@@ -271,16 +295,28 @@ function setupVRControllers() {
         ctx.fillStyle = '#ffffff';
         ctx.font = '26px sans-serif';
         ctx.fillText(`Dia del Año: ${Math.floor(manualDay)}`, 40, 115);
-        ctx.fillText(`Hora Local: ${Math.floor(manualHour)}:${Math.floor((manualHour % 1) * 60).toString().padStart(2, '0')} UTC`, 40, 155);
-        ctx.fillText(`Lat. Sub-Solar: ${solarDeclination.toFixed(2)}°`, 40, 195);
+        
+        const totalMsHUD = Math.round(manualHour * 3600000);
+        const hHUD = Math.floor(totalMsHUD / 3600000) % 24;
+        const mHUD = Math.floor((totalMsHUD % 3600000) / 60000);
+        const sHUD = Math.floor((totalMsHUD % 60000) / 1000);
+        
+        const curDate = new Date(Date.UTC(new Date().getFullYear(), 0, Math.floor(manualDay), hHUD, mHUD, sHUD));
+        const lH = curDate.getHours().toString().padStart(2, '0');
+        const lM = curDate.getMinutes().toString().padStart(2, '0');
+        const lS = curDate.getSeconds().toString().padStart(2, '0');
+        
+        ctx.fillText(`Hora Local: ${lH}:${lM}:${lS}`, 40, 155);
+        ctx.fillText(`Hora UTC: ${hHUD.toString().padStart(2, '0')}:${mHUD.toString().padStart(2, '0')}:${sHUD.toString().padStart(2, '0')}`, 40, 195);
+        ctx.fillText(`Lat. Sub-Solar: ${solarDeclination.toFixed(2)}°`, 40, 235);
 
         ctx.fillStyle = '#00ffff';
         ctx.font = 'bold 24px sans-serif';
-        ctx.fillText('MANUAL DE VUELO:', 40, 255);
+        ctx.fillText('MANUAL DE VUELO:', 40, 285);
         ctx.fillStyle = '#ffffff';
         ctx.font = '20px sans-serif';
-        ctx.fillText('• Mano Izq: Viaje en el Tiempo', 40, 300);
-        ctx.fillText('• Mano Der: Exploración Espacial', 40, 340);
+        ctx.fillText('• Mano Izq: Viaje en el Tiempo', 40, 320);
+        ctx.fillText('• Mano Der: Exploración Espacial', 40, 350);
         ctx.fillText('• Gatillos o Grip: Zoom +/-', 40, 380);
 
         tex.needsUpdate = true;
@@ -314,30 +350,46 @@ function handleVRInput() {
                 isLive = false;
                 hudDirty = true;
             }
-            // Trigger o Grip: Zoom Out (Alejar) analógico
+            // Trigger o Grip: Zoom Out (Alejar) analógico proporcional
             const zoomOutVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
             if (zoomOutVal > 0.05) {
-                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z + zoomOutVal * 10, 150, 5000);
+                const zoomFactor = vrOrbitRadius * 0.015; // Velocidad proporcional a la distancia
+                vrOrbitRadius = THREE.MathUtils.clamp(vrOrbitRadius + zoomOutVal * zoomFactor, 150, 5000);
             }
         }
 
         // ── MANO DERECHA: Exploración Espacial ──
         if (source.handedness === 'right') {
-            // Joystick controla órbita del usuario
+            // Joystick X: Modifica el ángulo theta (horizontal)
             if (Math.abs(ax[2]) > deadzone) {
-                vrCameraRig.rotation.y -= ax[2] * 0.015;
+                vrOrbitThetaVelocity -= ax[2] * 0.002;
             }
+            // Joystick Y: Modifica el ángulo phi (vertical)
             if (Math.abs(ax[3]) > deadzone) {
-                vrCameraRig.rotation.x = THREE.MathUtils.clamp(
-                    vrCameraRig.rotation.x - ax[3] * 0.015, 
-                    -Math.PI / 2.1, 
-                    Math.PI / 2.1
-                );
+                vrOrbitPhiVelocity -= ax[3] * 0.002;
             }
-            // Trigger o Grip: Zoom In (Acercar) analógico
+            // Trigger o Grip: Zoom In (Acercar) analógico proporcional
             const zoomInVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
             if (zoomInVal > 0.05) {
-                vrUserOffset.position.z = THREE.MathUtils.clamp(vrUserOffset.position.z - zoomInVal * 10, 150, 5000);
+                const zoomFactor = vrOrbitRadius * 0.015; // Velocidad proporcional a la distancia
+                vrOrbitRadius = THREE.MathUtils.clamp(vrOrbitRadius - zoomInVal * zoomFactor, 150, 5000);
+            }
+            
+            // Thumbstick press (reset)
+            if (bt[3] && bt[3].pressed) {
+                vrOrbitTheta = Math.PI / 2; // Frente al Ecuador
+                vrOrbitPhi = Math.PI / 2;
+                vrOrbitThetaVelocity = 0;
+                vrOrbitPhiVelocity = 0;
+                vrOrbitRadius = 500;
+                
+                // Forzar re-orientación al reset
+                vrUserOffset.position.set(
+                    vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta),
+                    vrOrbitRadius * Math.cos(vrOrbitPhi),
+                    vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta)
+                );
+                vrCameraRig.lookAt(0, 0, 0);
             }
         }
     }
@@ -348,22 +400,40 @@ function handleVRInput() {
 // ════════════════════════════════════════
 function render() {
     if (isLive) {
-        const now = new Date();
-        const start = new Date(now.getFullYear(), 0, 0);
-        const d = Math.floor((now - start) / 86400000);
-        const h = now.getUTCHours() + now.getUTCMinutes() / 60;
-        if (d !== Math.floor(manualDay) || Math.abs(h - manualHour) > 0.01) {
-            manualDay = d;
-            manualHour = h;
-            hudDirty = true;
-        }
+        const nowMs = Date.now();
+        const dateObj = new Date(nowMs);
+        const startYearMs = Date.UTC(dateObj.getUTCFullYear(), 0, 0);
+        manualDay = Math.floor((nowMs - startYearMs) / 86400000);
+        manualHour = (nowMs % 86400000) / 3600000;
+        hudDirty = true;
     }
 
     // Daily Rotation: Local Y within the tilted structure
-    rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2 + Math.PI;
+    // Giro antihorario completo sobre 24h
+    rotationGroup.rotation.y = (manualHour / 24) * Math.PI * 2;
 
     if (isInVR) {
         handleVRInput();
+
+        // Aplicar inercia (damping)
+        vrOrbitTheta += vrOrbitThetaVelocity;
+        vrOrbitPhi += vrOrbitPhiVelocity;
+        
+        // Multiplicador de fricción/damping
+        vrOrbitThetaVelocity *= 0.85;
+        vrOrbitPhiVelocity *= 0.85;
+        
+        // Clamp de Phi para evitar que la cámara se invierta en los polos
+        vrOrbitPhi = THREE.MathUtils.clamp(vrOrbitPhi, 0.01, Math.PI - 0.01);
+        
+        // Convertir coordenadas esféricas a cartesianas y aplicar a vrUserOffset
+        vrUserOffset.position.x = vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta);
+        vrUserOffset.position.y = vrOrbitRadius * Math.cos(vrOrbitPhi);
+        vrUserOffset.position.z = vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta);
+        
+        // Mantener vrCameraRig en el centro y usarlo para apuntar (lookAt) en vez del offset
+        vrCameraRig.position.set(0, 0, 0);
+        vrCameraRig.lookAt(0, 0, 0);
     } else {
         if (controls) controls.update();
     }
@@ -402,14 +472,13 @@ function updateSunDynamics() {
     solarDeclination = 23.44 * Math.sin((2 * Math.PI / 365) * (manualDay - 81));
     const decRad = THREE.MathUtils.degToRad(solarDeclination);
 
-    // Position sunLight relative to the tilted earth
+    // Position sunLight on positive Z and move along Y for declination (seasons)
     const R = 3000;
     const sy = R * Math.sin(decRad);
-    const sz = R * Math.cos(decRad);
 
     if (sunLight) {
-        // Adjust sun position and target to follow the earthAnchor
-        sunLight.position.set(earthAnchor.position.x, earthAnchor.position.y + sy, earthAnchor.position.z + sz);
+        // Sol posicionado en Z=3000 fijo, variando Y por la declinación
+        sunLight.position.set(0, sy, R);
         sunLight.target.position.copy(earthAnchor.position);
         sunLight.target.updateMatrixWorld();
     }
@@ -421,15 +490,31 @@ function syncDOM() {
     d.setDate(Math.floor(manualDay));
     if (uiDate) uiDate.innerText = d.toLocaleDateString();
 
-    const h = Math.floor(manualHour);
-    const m = Math.floor((manualHour % 1) * 60);
-    if (uiTime) uiTime.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00 UTC`;
+    const totalMs = Math.round(manualHour * 3600000);
+    const h = Math.floor(totalMs / 3600000) % 24;
+    const m = Math.floor((totalMs % 3600000) / 60000);
+    const s = Math.floor((totalMs % 60000) / 1000);
 
-    if (daySlider) daySlider.value = manualDay;
-    if (hourSlider) hourSlider.value = manualHour;
+    const utcDate = new Date(Date.UTC(d.getUTCFullYear(), 0, Math.floor(manualDay), h, m, s));
+    const localH = utcDate.getHours().toString().padStart(2, '0');
+    const localM = utcDate.getMinutes().toString().padStart(2, '0');
+    const localS = utcDate.getSeconds().toString().padStart(2, '0');
+
+    if (uiTime) {
+        uiTime.innerHTML = `Hora Local: ${localH}:${localM}:${localS}<br>Hora UTC: ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    if (daySlider) {
+        daySlider.value = manualDay;
+        daySlider.disabled = isLive;
+    }
+    if (hourSlider) {
+        hourSlider.value = manualHour;
+        hourSlider.disabled = isLive;
+    }
 
     if (viewDayText) viewDayText.innerText = isLive ? 'Hoy' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} UTC`;
+    if (viewHourText) viewHourText.innerText = isLive ? 'Ahora' : `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} UTC`;
 
     if (liveBtn && manualBtn) {
         liveBtn.classList.toggle('active', isLive);
