@@ -43,11 +43,12 @@ let isInVR = false;
 let frameCount = 0;
 
 // VR Orbit State
-let vrOrbitTheta = Math.PI / 2; // Horizontal angle
-let vrOrbitPhi = Math.PI / 2; // Vertical angle (Equator)
+let vrOrbitTheta = 0; // Ángulo horizontal (Ecuador)
+let vrOrbitPhi = 0; // Ángulo vertical (Inclinación)
 let vrOrbitRadius = 500; // Distance
 let vrOrbitThetaVelocity = 0;
 let vrOrbitPhiVelocity = 0;
+let vrBtns = { l4: false, l5: false, r4: false, r5: false, r3: false };
 
 // ── DOM REFERENCES ──
 const container = document.getElementById('canvas-container');
@@ -103,25 +104,18 @@ function init() {
     renderer.xr.addEventListener('sessionstart', () => {
         isInVR = true;
         
-        // Reset orbit parameters to initial state
-        vrOrbitTheta = Math.PI / 2;
-        vrOrbitPhi = Math.PI / 2;
-        vrOrbitRadius = 500; // Radio VR inicio en 500
+        // Reset orbit parameters to initial state (Ecuador, frente a Tierra)
+        vrOrbitTheta = 0;
+        vrOrbitPhi = 0;
+        vrOrbitRadius = 500; 
         vrOrbitThetaVelocity = 0;
         vrOrbitPhiVelocity = 0;
 
-        vrUserOffset.position.set(0, 0, 0);
+        vrCameraRig.position.set(0, 0, 0);
+        // vrUserOffset empuja el visor hacia atrás; el rig gira
+        vrUserOffset.position.set(0, 0, vrOrbitRadius);
         vrUserOffset.rotation.set(0, 0, 0);
         camera.position.set(0, 0, 0);
-        
-        // Colocar Rig en coordenadas de órbita base
-        vrCameraRig.position.set(
-            vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta),
-            vrOrbitRadius * Math.cos(vrOrbitPhi),
-            vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta)
-        );
-        // Apuntar Rig al centro UNA SOLA VEZ
-        vrCameraRig.lookAt(0, 0, 0);
         
         if (controls) controls.enabled = false;
         if (vrHUD) vrHUD.visible = true;
@@ -312,12 +306,12 @@ function setupVRControllers() {
 
         ctx.fillStyle = '#00ffff';
         ctx.font = 'bold 24px sans-serif';
-        ctx.fillText('MANUAL DE VUELO:', 40, 285);
+        ctx.fillText('NUEVO CONTROL VR:', 40, 285);
         ctx.fillStyle = '#ffffff';
         ctx.font = '20px sans-serif';
-        ctx.fillText('• Mano Izq: Viaje en el Tiempo', 40, 320);
-        ctx.fillText('• Mano Der: Exploración Espacial', 40, 350);
-        ctx.fillText('• Gatillos o Grip: Zoom +/-', 40, 380);
+        ctx.fillText('• Mano Izq: Horas(X), Estaciones(Y/Btn)', 40, 320);
+        ctx.fillText('• Mano Der: Órbita(X), Polos(Y/Btn)', 40, 350);
+        ctx.fillText('• Gatillos: Zoom +/-', 40, 380);
 
         tex.needsUpdate = true;
     };
@@ -336,60 +330,95 @@ function handleVRInput() {
         const bt = source.gamepad.buttons;
         const deadzone = 0.1;
 
-        // ── MANO IZQUIERDA: Master de Tiempo ──
+        // ── MANO IZQUIERDA: Master de Tiempo (Días y Horas) ──
         if (source.handedness === 'left') {
-            // X: Día del año (manualDay)
+            // Joystick X: Hora del día (Movimiento fino del Sol)
             if (Math.abs(ax[2]) > deadzone) {
-                manualDay = THREE.MathUtils.clamp(manualDay + ax[2] * 0.15, 1, 365);
+                manualHour = (manualHour + ax[2] * 0.15 + 24) % 24;
                 isLive = false;
                 hudDirty = true;
             }
-            // Y: Hora del día (manualHour)
+            // Joystick Y: Día del año (Recorrer las estaciones)
             if (Math.abs(ax[3]) > deadzone) {
-                manualHour = (manualHour + ax[3] * 0.04 + 24) % 24;
+                // ax[3] < 0 (hacia arriba) avanza los meses más rápido
+                manualDay = THREE.MathUtils.clamp(manualDay - ax[3] * 0.8, 1, 365);
                 isLive = false;
                 hudDirty = true;
             }
-            // Trigger o Grip: Zoom Out (Alejar) analógico proporcional
+
+            // Botón X/A (bt[4]): Siguiente Equinoccio/Solsticio
+            const l4Pressed = (bt[4] && bt[4].pressed);
+            if (l4Pressed && !vrBtns.l4) {
+                const seasons = [81, 172, 264, 355]; // Eq.Primaveral, Sol.Verano, Eq.Otoñal, Sol.Invierno
+                let next = seasons.find(s => s > manualDay);
+                if (!next) next = seasons[0];
+                manualDay = next;
+                isLive = false;
+                hudDirty = true;
+            }
+            vrBtns.l4 = l4Pressed;
+
+            // Botón Y/B (bt[5]): Retorno a Tiempo Real
+            const l5Pressed = (bt[5] && bt[5].pressed);
+            if (l5Pressed && !vrBtns.l5) {
+                isLive = true;
+                hudDirty = true;
+            }
+            vrBtns.l5 = l5Pressed;
+
+            // Trigger o Grip Izquierdo: Zoom Out (Alejar)
             const zoomOutVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
             if (zoomOutVal > 0.05) {
-                const zoomFactor = vrOrbitRadius * 0.015; // Velocidad proporcional a la distancia
+                const zoomFactor = vrOrbitRadius * 0.015;
                 vrOrbitRadius = THREE.MathUtils.clamp(vrOrbitRadius + zoomOutVal * zoomFactor, 150, 5000);
             }
         }
 
-        // ── MANO DERECHA: Exploración Espacial ──
+        // ── MANO DERECHA: Exploración Espacial (Cara Oscura y Polos) ──
         if (source.handedness === 'right') {
-            // Joystick X: Modifica el ángulo theta (horizontal)
+            // Joystick X: Rotar alrededor de la Tierra (Theta, luz a oscuridad)
             if (Math.abs(ax[2]) > deadzone) {
-                vrOrbitThetaVelocity -= ax[2] * 0.002;
+                vrOrbitThetaVelocity -= ax[2] * 0.003;
             }
-            // Joystick Y: Modifica el ángulo phi (vertical)
+            // Joystick Y: Ir hacia los Polos (Phi, latitud)
             if (Math.abs(ax[3]) > deadzone) {
-                vrOrbitPhiVelocity -= ax[3] * 0.002;
-            }
-            // Trigger o Grip: Zoom In (Acercar) analógico proporcional
-            const zoomInVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
-            if (zoomInVal > 0.05) {
-                const zoomFactor = vrOrbitRadius * 0.015; // Velocidad proporcional a la distancia
-                vrOrbitRadius = THREE.MathUtils.clamp(vrOrbitRadius - zoomInVal * zoomFactor, 150, 5000);
+                vrOrbitPhiVelocity -= ax[3] * 0.003;
             }
             
-            // Thumbstick press (reset)
-            if (bt[3] && bt[3].pressed) {
-                vrOrbitTheta = Math.PI / 2; // Frente al Ecuador
-                vrOrbitPhi = Math.PI / 2;
+            // Botón A/X (bt[4]): Reset cámara a Greenwich/Ecuador
+            const r4Pressed = (bt[4] && bt[4].pressed);
+            if (r4Pressed && !vrBtns.r4) {
+                vrOrbitTheta = 0;
+                vrOrbitPhi = 0;
                 vrOrbitThetaVelocity = 0;
                 vrOrbitPhiVelocity = 0;
+            }
+            vrBtns.r4 = r4Pressed;
+
+            // Botón B/Y (bt[5]): Viaje rápido al Polo Norte
+            const r5Pressed = (bt[5] && bt[5].pressed);
+            if (r5Pressed && !vrBtns.r5) {
+                vrOrbitPhi = Math.PI / 2 - 0.1; // Rotación casi 90 deg para mirar desde Polo Norte
+                vrOrbitPhiVelocity = 0;
+            }
+            vrBtns.r5 = r5Pressed;
+
+            // Thumbstick press (reset central inicial)
+            const r3Pressed = (bt[3] && bt[3].pressed);
+            if (r3Pressed && !vrBtns.r3) {
+                vrOrbitTheta = 0;
+                vrOrbitPhi = 0;
                 vrOrbitRadius = 500;
-                
-                // Forzar re-orientación al reset
-                vrUserOffset.position.set(
-                    vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta),
-                    vrOrbitRadius * Math.cos(vrOrbitPhi),
-                    vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta)
-                );
-                vrCameraRig.lookAt(0, 0, 0);
+                vrOrbitThetaVelocity = 0;
+                vrOrbitPhiVelocity = 0;
+            }
+            vrBtns.r3 = r3Pressed;
+
+            // Trigger o Grip Derecho: Zoom In (Acercar)
+            const zoomInVal = Math.max(bt[0] ? bt[0].value : 0, bt[1] ? bt[1].value : 0);
+            if (zoomInVal > 0.05) {
+                const zoomFactor = vrOrbitRadius * 0.015;
+                vrOrbitRadius = THREE.MathUtils.clamp(vrOrbitRadius - zoomInVal * zoomFactor, 150, 5000);
             }
         }
     }
@@ -423,17 +452,15 @@ function render() {
         vrOrbitThetaVelocity *= 0.85;
         vrOrbitPhiVelocity *= 0.85;
         
-        // Clamp de Phi para evitar que la cámara se invierta en los polos
-        vrOrbitPhi = THREE.MathUtils.clamp(vrOrbitPhi, 0.01, Math.PI - 0.01);
+        // Clamp de Phi (Rotación vertical limitadora entre los Polos)
+        vrOrbitPhi = THREE.MathUtils.clamp(vrOrbitPhi, -Math.PI / 2.1, Math.PI / 2.1);
         
-        // Convertir coordenadas esféricas a cartesianas y aplicar a vrUserOffset
-        vrUserOffset.position.x = vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.cos(vrOrbitTheta);
-        vrUserOffset.position.y = vrOrbitRadius * Math.cos(vrOrbitPhi);
-        vrUserOffset.position.z = vrOrbitRadius * Math.sin(vrOrbitPhi) * Math.sin(vrOrbitTheta);
-        
-        // Mantener vrCameraRig en el centro y usarlo para apuntar (lookAt) en vez del offset
+        // Mantener vrCameraRig centrado y aplicar rotación limpia Euler para explorar la órbita nativamente
         vrCameraRig.position.set(0, 0, 0);
-        vrCameraRig.lookAt(0, 0, 0);
+        vrCameraRig.rotation.set(vrOrbitPhi, vrOrbitTheta, 0);
+        
+        // Alejar el offset sin causar conflictos de lookAt con las matrices XR
+        vrUserOffset.position.set(0, 0, vrOrbitRadius);
     } else {
         if (controls) controls.update();
     }
