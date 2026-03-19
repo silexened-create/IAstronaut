@@ -31,6 +31,7 @@ let scene, camera, renderer, controls;
 let vrCameraRig, vrUserOffset, controller1, controller2;
 let earthAnchor, earthGroup, rotationGroup;
 let earth, clouds, sunLight, starField;
+let sunVisual, sunRayLine;
 let vrHUD;
 
 // ── STATE ──
@@ -165,6 +166,9 @@ function init() {
     sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     scene.add(sunLight);
     scene.add(sunLight.target);
+
+    // 10. Sun Visual
+    createSunVisual();
 
     // 10. Start
     window.addEventListener('resize', onResize);
@@ -320,6 +324,67 @@ function createCelestialGuides() {
     // ── 4. Tropic of Capricorn (23.44° S) ──
     const tropicCapricorn = createLatitudeRing(-TROPIC_LAT, 0xffcc44, 0.25);
     earthGroup.add(tropicCapricorn);
+}
+
+function createSunVisual() {
+    // ── Sun Group (contains sphere + glow) ──
+    sunVisual = new THREE.Group();
+
+    // 1. Sun Sphere — small, warm emissive
+    const sunGeo = new THREE.SphereGeometry(12, 24, 24);
+    const sunMat = new THREE.MeshBasicMaterial({
+        color: 0xfff4d6,
+        transparent: true,
+        opacity: 0.95
+    });
+    const sunSphere = new THREE.Mesh(sunGeo, sunMat);
+    sunVisual.add(sunSphere);
+
+    // 2. Corona Glow — procedural radial gradient sprite
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 256;
+    glowCanvas.height = 256;
+    const gCtx = glowCanvas.getContext('2d');
+    const gradient = gCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gradient.addColorStop(0, 'rgba(255, 240, 180, 0.6)');
+    gradient.addColorStop(0.25, 'rgba(255, 210, 100, 0.3)');
+    gradient.addColorStop(0.5, 'rgba(255, 180, 60, 0.1)');
+    gradient.addColorStop(1, 'rgba(255, 160, 40, 0)');
+    gCtx.fillStyle = gradient;
+    gCtx.fillRect(0, 0, 256, 256);
+
+    const glowTex = new THREE.CanvasTexture(glowCanvas);
+    const glowMat = new THREE.SpriteMaterial({
+        map: glowTex,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 0.7
+    });
+    const glowSprite = new THREE.Sprite(glowMat);
+    glowSprite.scale.set(80, 80, 1);
+    sunVisual.add(glowSprite);
+
+    // Position will be updated in updateSunDynamics()
+    sunVisual.position.set(0, 0, 550);
+    scene.add(sunVisual);
+
+    // 3. Sun Ray Line — subtle beam from sun to Earth surface
+    const rayGeo = new THREE.BufferGeometry();
+    const rayPositions = new Float32Array(6); // 2 points × 3 coords
+    rayGeo.setAttribute('position', new THREE.BufferAttribute(rayPositions, 3));
+    const rayMat = new THREE.LineDashedMaterial({
+        color: 0xffdd66,
+        transparent: true,
+        opacity: 0.2,
+        dashSize: 8,
+        gapSize: 6,
+        depthTest: true,
+        depthWrite: false
+    });
+    sunRayLine = new THREE.Line(rayGeo, rayMat);
+    sunRayLine.computeLineDistances();
+    scene.add(sunRayLine);
 }
 
 // ════════════════════════════════════════
@@ -556,6 +621,14 @@ function render() {
 
     if (clouds) clouds.rotation.y += 0.0001;
 
+    // Sun Visual: continuous pulse animation (runs every frame for smooth glow)
+    if (sunVisual) {
+        const pulse = 1.0 + 0.08 * Math.sin(Date.now() * 0.003);
+        sunVisual.scale.setScalar(pulse);
+    }
+    // Recompute line distances for dashed ray (needs update after position changes)
+    if (sunRayLine) sunRayLine.computeLineDistances();
+
     // Light Alignment: Target follows Earth
     if (sunLight) {
         sunLight.target.position.copy(earthAnchor.position);
@@ -583,6 +656,34 @@ function updateSunDynamics() {
         sunLight.target.position.copy(earthAnchor.position);
         sunLight.target.updateMatrixWorld();
     }
+
+    // ── Update Sun Visual Position ──
+    const SUN_VISUAL_R = 550; // Distance of visual sun from Earth
+    const svY = SUN_VISUAL_R * Math.sin(decRad);
+    const svZ = SUN_VISUAL_R * Math.cos(decRad);
+
+    if (sunVisual) {
+        sunVisual.position.set(0, svY, svZ);
+
+        // Subtle pulsing glow
+        const pulse = 1.0 + 0.08 * Math.sin(Date.now() * 0.003);
+        sunVisual.scale.setScalar(pulse);
+    }
+
+    // ── Update Sun Ray (shows direct sunlight path to Earth surface) ──
+    if (sunRayLine) {
+        const rayPositions = sunRayLine.geometry.attributes.position;
+        // Start from sun visual
+        rayPositions.setXYZ(0, 0, svY, svZ);
+        // End at Earth surface where sun is directly overhead
+        // The point on the surface at the sub-solar latitude
+        const surfaceR = 102; // slightly above Earth surface
+        const hitY = surfaceR * Math.sin(decRad);
+        const hitZ = surfaceR * Math.cos(decRad);
+        rayPositions.setXYZ(1, 0, hitY, hitZ);
+        rayPositions.needsUpdate = true;
+    }
+
     if (uiSunCoords) uiSunCoords.innerText = `Decl. Solar: ${solarDeclination.toFixed(2)}°`;
 }
 
