@@ -245,7 +245,81 @@ function createStars() {
 }
 
 function createCelestialGuides() {
-    // Hidden or removed debug guides as requested
+    const EARTH_R = 100;
+    const TROPIC_LAT = 23.44; // degrees
+
+    // ── Helper: Create a latitude ring ──
+    function createLatitudeRing(latDeg, color, opacity) {
+        const latRad = THREE.MathUtils.degToRad(latDeg);
+        const r = EARTH_R * Math.cos(latRad);    // radius of ring at this latitude
+        const y = EARTH_R * Math.sin(latRad);     // height of ring
+        const segments = 128;
+        const points = [];
+        for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            points.push(new THREE.Vector3(
+                r * Math.cos(angle),
+                y,
+                r * Math.sin(angle)
+            ));
+        }
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            depthTest: true,
+            depthWrite: false
+        });
+        return new THREE.Line(geometry, material);
+    }
+
+    // ── 1. Rotation Axis (Pole to Pole) ──
+    const axisExtension = 1.35; // extends 35% beyond sphere
+    const axisPoints = [
+        new THREE.Vector3(0, -EARTH_R * axisExtension, 0),
+        new THREE.Vector3(0,  EARTH_R * axisExtension, 0)
+    ];
+    const axisGeometry = new THREE.BufferGeometry().setFromPoints(axisPoints);
+    const axisMaterial = new THREE.LineDashedMaterial({
+        color: 0x88ccff,
+        transparent: true,
+        opacity: 0.35,
+        dashSize: 6,
+        gapSize: 4,
+        depthTest: true,
+        depthWrite: false
+    });
+    const axisLine = new THREE.Line(axisGeometry, axisMaterial);
+    axisLine.computeLineDistances(); // Required for dashed material
+    earthGroup.add(axisLine);
+
+    // Small spheres at the poles for visual reference
+    const poleDotGeo = new THREE.SphereGeometry(1.5, 8, 8);
+    const poleDotMat = new THREE.MeshBasicMaterial({
+        color: 0x88ccff,
+        transparent: true,
+        opacity: 0.5
+    });
+    const northPole = new THREE.Mesh(poleDotGeo, poleDotMat);
+    northPole.position.set(0, EARTH_R * axisExtension, 0);
+    earthGroup.add(northPole);
+
+    const southPole = new THREE.Mesh(poleDotGeo.clone(), poleDotMat.clone());
+    southPole.position.set(0, -EARTH_R * axisExtension, 0);
+    earthGroup.add(southPole);
+
+    // ── 2. Equator (0° latitude) ──
+    const equator = createLatitudeRing(0, 0x00ffaa, 0.3);
+    earthGroup.add(equator);
+
+    // ── 3. Tropic of Cancer (23.44° N) ──
+    const tropicCancer = createLatitudeRing(TROPIC_LAT, 0xffcc44, 0.25);
+    earthGroup.add(tropicCancer);
+
+    // ── 4. Tropic of Capricorn (23.44° S) ──
+    const tropicCapricorn = createLatitudeRing(-TROPIC_LAT, 0xffcc44, 0.25);
+    earthGroup.add(tropicCapricorn);
 }
 
 // ════════════════════════════════════════
