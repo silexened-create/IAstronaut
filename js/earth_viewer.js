@@ -533,11 +533,20 @@ function syncDOM() {
 
     if (daySlider) {
         daySlider.value = manualDay;
-        daySlider.disabled = isLive;
     }
     if (hourSlider) {
         hourSlider.value = manualHour;
-        hourSlider.disabled = isLive;
+    }
+
+    const controlsPanel = document.querySelector('.temporal-controls');
+    if (controlsPanel) {
+        if (!isLive) {
+            controlsPanel.style.borderColor = '#ffea00';
+            controlsPanel.style.boxShadow = '0 0 15px rgba(255, 234, 0, 0.4)';
+        } else {
+            controlsPanel.style.borderColor = 'var(--glass-border)';
+            controlsPanel.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.5)';
+        }
     }
 
     if (viewDayText) viewDayText.innerText = isLive ? 'Hoy' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -554,12 +563,44 @@ function setupDOMListeners() {
     if (manualBtn) manualBtn.addEventListener('click', () => { isLive = false; hudDirty = true; });
     if (daySlider) daySlider.addEventListener('input', (e) => { manualDay = parseInt(e.target.value); isLive = false; hudDirty = true; });
     if (hourSlider) hourSlider.addEventListener('input', (e) => { manualHour = parseFloat(e.target.value); isLive = false; hudDirty = true; });
+
+    // ── TOUCH: Disable OrbitControls while dragging sliders ──
+    const sliders = [daySlider, hourSlider];
+    sliders.forEach(slider => {
+        if (!slider) return;
+        slider.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            isLive = false;
+            hudDirty = true;
+            if (controls) controls.enabled = false;
+        }, { passive: false });
+        slider.addEventListener('touchend', () => {
+            if (controls && !isInVR) controls.enabled = true;
+        });
+        slider.addEventListener('touchcancel', () => {
+            if (controls && !isInVR) controls.enabled = true;
+        });
+        // Also handle pointer events for hybrid devices
+        slider.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch') {
+                e.stopPropagation();
+                isLive = false;
+                hudDirty = true;
+                if (controls) controls.enabled = false;
+            }
+        });
+        slider.addEventListener('pointerup', (e) => {
+            if (e.pointerType === 'touch') {
+                if (controls && !isInVR) controls.enabled = true;
+            }
+        });
+    });
 }
 
 function onResize() {
     const w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
-    if (w < 900 && !isInVR) {
+    if (w < 1024 && !isInVR) {
         camera.setViewOffset(w, h, 0, -h * 0.35, w, h);
     } else {
         camera.clearViewOffset();
