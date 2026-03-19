@@ -33,71 +33,73 @@
 
             .header {
                 flex-direction: column;
-                gap: 15px;
+                gap: 5px;
                 width: 100%;
+                align-items: center;
             }
 
             .right-sidebar {
+                position: absolute;
+                bottom: 50px;
+                left: 0;
                 width: 100% !important;
                 background: transparent;
                 backdrop-filter: none;
                 border: none;
-                padding: 0;
+                padding: 0 15px;
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
-                pointer-events: auto;
+                pointer-events: none;
+                box-sizing: border-box;
             }
 
             .temporal-controls {
-                background: var(--glass-bg);
-                backdrop-filter: blur(12px);
+                background: rgba(8, 12, 24, 0.75);
+                backdrop-filter: blur(8px);
                 border: 1px solid var(--glass-border);
                 padding: 15px;
-                border-radius: 12px;
+                border-radius: 15px;
                 order: -1;
                 margin-bottom: 0;
-                /* Ensure sliders are at the very top */
+                pointer-events: auto;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
             }
 
             .mode-toggle {
                 display: none !important;
-                /* Remove redundancy on mobile */
             }
 
             .control-group {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                margin-bottom: 8px;
-                /* Reduced from 15px */
+                margin-bottom: 12px;
             }
 
             .control-header label {
                 font-size: 0.65rem !important;
-                /* Smaller label */
             }
 
             .control-value {
                 font-size: 0.7rem !important;
-                /* Smaller value */
                 padding: 2px 8px !important;
             }
 
             input[type="range"] {
-                width: 80% !important;
-                /* Reduce width */
-                height: 4px !important;
-                /* Slimmer sliders */
+                width: 95% !important;
+                height: 25px !important;
+                border-radius: 15px;
+                margin: 5px 0 !important;
             }
 
             .info-panel {
                 display: none !important;
-                /* Hide secondary info panel */
             }
 
             .title-box {
                 pointer-events: auto;
+                text-align: center;
             }
 
             .title-box h1 {
@@ -106,11 +108,11 @@
 
             .title-box p {
                 font-size: 0.75rem;
+                display: none;
             }
 
             .bottom-bar {
                 padding-bottom: 5px;
-                /* Reduced from 20px */
             }
         }
 

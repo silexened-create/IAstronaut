@@ -632,14 +632,19 @@ footer a {
   }
 
   nav ul li a {
-    font-size: 0.7rem;
-    padding: 5px 10px;
+    font-size: 0.8rem;
+    padding: 8px 15px;
+    display: block;
+    width: 100%;
+    text-align: center;
   }
 
   .nav-biometria,
   .nav-earth,
   .nav-doc {
-    padding: 4px 10px !important;
+    padding: 10px 15px !important;
+    margin: 5px 0 !important;
+    display: inline-block;
   }
 
   .dashboard {
@@ -649,6 +654,30 @@ footer a {
 
   #chat-container {
     height: 60vh;
+  }
+
+  #chat-form {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  #chat-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 1rem;
+  }
+
+  #mic-btn {
+    height: 48px;
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #chat-form button[type="submit"] {
+    flex: 1;
+    height: 48px;
   }
 
   .decorative-asset {
@@ -706,5 +735,7 @@ footer a {
     /* Reducimos altura para dejar ver la Tierra abajo */
     margin-top: auto;
     /* Lo empuja hacia abajo si es necesario */
+    pointer-events: auto;
+    z-index: 100;
   }
 }
