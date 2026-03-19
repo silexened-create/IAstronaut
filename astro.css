@@ -585,7 +585,7 @@ footer a {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .dashboard {
     grid-template-columns: 1fr;
     overflow-y: auto;
@@ -600,7 +600,7 @@ footer a {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .header-content {
     flex-direction: column;
     padding: 15px 10px;
@@ -695,7 +695,7 @@ footer a {
 }
 
 /* --- ESTO DEBE IR AL FINAL DEL ARCHIVO PARA PRIORIDAD MÁXIMA --- */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
 
   /* 1. Evitamos que el contenedor del modelo 3D sea desplazado */
   .dashboard-center {
