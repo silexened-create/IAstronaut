@@ -869,3 +869,55 @@ function renderVR() {
 }
 
 
+async function loadPlanetModel(title) {
+    const modelFile = modelMap[title];
+    if (!modelFile) return;
+
+    console.log(`📦 [CARGA] Iniciando descarga de modelo: ${modelFile}`);
+    
+    gltfLoader.load(`Models/${modelFile}`, (gltf) => {
+        // Limpiar planeta anterior
+        if (currentPlanetModel) {
+            planetGroup.remove(currentPlanetModel);
+        }
+        
+        currentPlanetModel = gltf.scene;
+        normalizeModel(currentPlanetModel, title);
+        planetGroup.add(currentPlanetModel);
+        currentLoadedTitle = title;
+        
+        console.log(`✅ [ESCENA] ${title} cargado correctamente.`);
+    }, undefined, (error) => {
+        console.error(`❌ [ERROR] No se pudo cargar el modelo ${modelFile}:`, error);
+    });
+}
+
+// HUD de Realidad Virtual (Básico)
+function createVRHUD() {
+    console.log("🕶️ [HUD] Configurando interfaz de Realidad Virtual...");
+    // Aquí puedes añadir menús flotantes para el Oculus más adelante
+}
+
+function setupControllers() {
+    // Configuración básica de mandos para Oculus
+    controller1 = renderer.xr.getController(0);
+    scene.add(controller1);
+    controller2 = renderer.xr.getController(1);
+    scene.add(controller2);
+}
+
+function renderVR() {
+    const delta = clock.getDelta();
+    
+    // Animación de rotación suave para los planetas
+    if (currentPlanetModel) {
+        currentPlanetModel.rotation.y += 0.1 * delta;
+    }
+    
+    // Efecto de estrellas
+    if (starField) {
+        starField.rotation.y += 0.02 * delta;
+    }
+
+    renderer.render(scene, camera);
+}
