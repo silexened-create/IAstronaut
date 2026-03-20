@@ -160,25 +160,30 @@ async function loadMissionLog() {
 }
 
 function setupMobileMenu() {
-    if (!elements.hamburger) return;
+    // FIX: Si no existen estos elementos, el código ya no se detiene
+    if (!elements.hamburger || !elements.indiceContainer) {
+        console.warn("⚠️ [SISTEMA] Menú móvil no detectado. Saltando configuración.");
+        return;
+    }
 
     elements.hamburger.addEventListener('click', (e) => {
         e.stopPropagation();
         elements.indiceContainer.classList.toggle('active');
-        elements.hamburger.querySelector('span').innerText =
-            elements.indiceContainer.classList.contains('active') ? '✖' : '☰';
+        const span = elements.hamburger.querySelector('span');
+        if (span) span.innerText = elements.indiceContainer.classList.contains('active') ? '✖' : '☰';
     });
 
-    // Close on click outside
     document.addEventListener('touchstart', (e) => {
         if (elements.indiceContainer.classList.contains('active') &&
             !elements.indiceContainer.contains(e.target) &&
             !elements.hamburger.contains(e.target)) {
             elements.indiceContainer.classList.remove('active');
-            elements.hamburger.querySelector('span').innerText = '☰';
+            const span = elements.hamburger.querySelector('span');
+            if (span) span.innerText = '☰';
         }
     }, { passive: true });
 }
+
 
 /**
  * CARGA UN CAPÍTULO ESPECÍFICO (SEGMENTO DE AUDIO)
