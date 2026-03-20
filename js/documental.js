@@ -160,30 +160,32 @@ async function loadMissionLog() {
 }
 
 function setupMobileMenu() {
-    // FIX: Si no existen estos elementos, el código ya no se detiene
-    if (!elements.hamburger || !elements.indiceContainer) {
-        console.warn("⚠️ [SISTEMA] Menú móvil no detectado. Saltando configuración.");
-        return;
-    }
+    if (!elements.hamburger) return;
 
-    elements.hamburger.addEventListener('click', (e) => {
+    const toggleMenu = (e) => {
         e.stopPropagation();
+        e.preventDefault();
         elements.indiceContainer.classList.toggle('active');
-        const span = elements.hamburger.querySelector('span');
-        if (span) span.innerText = elements.indiceContainer.classList.contains('active') ? '✖' : '☰';
-    });
+        elements.hamburger.querySelector('span').innerText =
+            elements.indiceContainer.classList.contains('active') ? '✖' : '☰';
+    };
 
-    document.addEventListener('touchstart', (e) => {
+    // Both click and touchstart for Oculus Browser compatibility
+    elements.hamburger.addEventListener('click', toggleMenu);
+    elements.hamburger.addEventListener('touchstart', toggleMenu, { passive: false });
+
+    // Close on click/touch outside
+    const closeMenu = (e) => {
         if (elements.indiceContainer.classList.contains('active') &&
             !elements.indiceContainer.contains(e.target) &&
             !elements.hamburger.contains(e.target)) {
             elements.indiceContainer.classList.remove('active');
-            const span = elements.hamburger.querySelector('span');
-            if (span) span.innerText = '☰';
+            elements.hamburger.querySelector('span').innerText = '☰';
         }
-    }, { passive: true });
+    };
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('touchstart', closeMenu, { passive: true });
 }
-
 
 /**
  * CARGA UN CAPÍTULO ESPECÍFICO (SEGMENTO DE AUDIO)
@@ -400,9 +402,12 @@ function initVR() {
     document.body.appendChild(renderer.domElement);
 
     const vrBtn = VRButton.createButton(renderer);
-    vrBtn.style.zIndex = '9999';
-    vrBtn.style.position = 'absolute';
+    vrBtn.style.zIndex = '200000';
+    vrBtn.style.position = 'fixed';
     vrBtn.style.bottom = '20px';
+    vrBtn.style.left = '50%';
+    vrBtn.style.transform = 'translateX(-50%)';
+    vrBtn.style.pointerEvents = 'auto';
     document.body.appendChild(vrBtn);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -869,55 +874,3 @@ function renderVR() {
 }
 
 
-async function loadPlanetModel(title) {
-    const modelFile = modelMap[title];
-    if (!modelFile) return;
-
-    console.log(`📦 [CARGA] Iniciando descarga de modelo: ${modelFile}`);
-    
-    gltfLoader.load(`Models/${modelFile}`, (gltf) => {
-        // Limpiar planeta anterior
-        if (currentPlanetModel) {
-            planetGroup.remove(currentPlanetModel);
-        }
-        
-        currentPlanetModel = gltf.scene;
-        normalizeModel(currentPlanetModel, title);
-        planetGroup.add(currentPlanetModel);
-        currentLoadedTitle = title;
-        
-        console.log(`✅ [ESCENA] ${title} cargado correctamente.`);
-    }, undefined, (error) => {
-        console.error(`❌ [ERROR] No se pudo cargar el modelo ${modelFile}:`, error);
-    });
-}
-
-// HUD de Realidad Virtual (Básico)
-function createVRHUD() {
-    console.log("🕶️ [HUD] Configurando interfaz de Realidad Virtual...");
-    // Aquí puedes añadir menús flotantes para el Oculus más adelante
-}
-
-function setupControllers() {
-    // Configuración básica de mandos para Oculus
-    controller1 = renderer.xr.getController(0);
-    scene.add(controller1);
-    controller2 = renderer.xr.getController(1);
-    scene.add(controller2);
-}
-
-function renderVR() {
-    const delta = clock.getDelta();
-    
-    // Animación de rotación suave para los planetas
-    if (currentPlanetModel) {
-        currentPlanetModel.rotation.y += 0.1 * delta;
-    }
-    
-    // Efecto de estrellas
-    if (starField) {
-        starField.rotation.y += 0.02 * delta;
-    }
-
-    renderer.render(scene, camera);
-}
