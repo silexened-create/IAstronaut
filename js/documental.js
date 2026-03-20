@@ -116,15 +116,17 @@ async function loadMissionLog() {
             btn.style.marginBottom = '5px';
             btn.innerHTML = `🚀 ${cap.titulo}`;
 
-            // Use touchstart for mobile, click for desktop
-            const interactionEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
-            btn.addEventListener(interactionEvent, (e) => {
+            // Bind BOTH click and touchstart for Quest Browser compatibility
+            const handlePlanetClick = (e) => {
+                e.preventDefault();
                 loadChapter(index);
-                if (window.innerWidth <= 768) {
+                if (window.innerWidth <= 1024) {
                     elements.indiceContainer.classList.remove('active');
                     elements.hamburger.querySelector('span').innerText = '☰';
                 }
-            });
+            };
+            btn.addEventListener('click', handlePlanetClick);
+            btn.addEventListener('touchstart', handlePlanetClick, { passive: false });
 
             elements.menuPlanetas.appendChild(btn);
 
