@@ -21,7 +21,7 @@ body {
     margin: 0;
     padding: 0;
     background-color: var(--space-black);
-    background-image: radial-gradient(circle at center, #1a2a44 0%, #02040a 100%), url('Image/Estrellas.png');
+    background-image: radial-gradient(circle at center, #1a2a44 0%, #02040a 100%);
     background-size: cover;
     background-attachment: fixed;
     color: var(--text-white);
@@ -157,6 +157,7 @@ h3 {
     transform: scale(1.05);
     z-index: 10;
 }
+
 /* 8. Chat Interface Styles */
 .chat-msg {
     margin-bottom: 15px;
