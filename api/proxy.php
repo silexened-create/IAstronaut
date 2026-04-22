@@ -31,7 +31,7 @@ $imagen_base64 = $input["image"] ?? null;
 /**
  * LÓGICA DE SELECCIÓN DE MODELO
  */
-$modelo_texto = "arcee-ai/trinity-large-preview:free";
+$modelo_texto = "google/gemma-4-26b-a4b-it:free";
 $modelo_vision = "google/gemini-2.0-flash-exp:free"; 
 
 $modelo_activo = ($imagen_base64) ? $modelo_vision : $modelo_texto;
