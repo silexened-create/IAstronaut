@@ -134,7 +134,7 @@ export async function speak(text) {
     //    En móvil las voces locales tienden a sonar más rápidas,
     //    así que bajamos la velocidad un poco.
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    currentUtterance.rate = isMobile ? 1.05 : 1.15;
+    currentUtterance.rate = isMobile ? 1.35 : 1.50;
     currentUtterance.pitch = 1.1;
 
     // 5. Eventos de la locución
