@@ -1,7 +1,11 @@
 import { addMsg, showSpinner, hideSpinner } from './ui.js';
 import { speak } from './tts.js';
+import { buscarContextoArtemis, cargarDatosArtemis } from './artemis_rag.js';
 
-const BASE_URL = "https://iastronaut.onrender.com";
+// ── Auto-detección: Local vs Producción (Render) ──
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
+console.log(`🌐 [ENV] ${isLocal ? 'LOCAL' : 'RENDER'} → ${BASE_URL}`);
 
 let modo = "idle";
 let preguntaPendiente = "";
@@ -89,7 +93,7 @@ recog.onend = () => {
   }
 };
 
-// --- PROCESAR ENTRADA (CORREGIDO EXPORT) ---
+// --- PROCESAR ENTRADA (CON RAG ARTEMIS II) ---
 export async function procesarEntrada(texto, imagenB64 = null) {
   if (!texto && !imagenB64) return;
   if (modo === "processing") return;
@@ -99,6 +103,15 @@ export async function procesarEntrada(texto, imagenB64 = null) {
   if (texto) addMsg('Tú', texto);
 
   try {
+    // 1. Búsqueda semántica RAG sobre datos de Artemis II
+    let artemisContext = null;
+    if (texto) {
+      artemisContext = buscarContextoArtemis(texto);
+      if (artemisContext) {
+        console.log("🔭 [RAG] Contexto Artemis II inyectado en la consulta.");
+      }
+    }
+
     const history = (window.conversationHistory || []).map(m => ({
       role: m.who === 'Tú' ? 'user' : 'assistant',
       content: m.texto
@@ -109,7 +122,12 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       method: "POST",
       mode: 'cors',
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: texto, history: history, image: imagenB64 })
+      body: JSON.stringify({
+        message: texto,
+        history: history,
+        image: imagenB64,
+        artemis_context: artemisContext
+      })
     });
 
     const data = await r.json();
@@ -130,6 +148,9 @@ export async function procesarEntrada(texto, imagenB64 = null) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Asegurar que el módulo RAG esté cargado
+  cargarDatosArtemis();
+
   const btn = document.getElementById("mic-btn");
   if (btn) btn.addEventListener("click", () => {
     if (!escuchando) activarEscucha();

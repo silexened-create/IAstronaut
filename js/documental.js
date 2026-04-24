@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
-const BASE_URL = "https://iastronaut.onrender.com";
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
 
 console.log("🚀 [SISTEMA] Inicializando Motor de Bitácora de Misión...");
 
@@ -97,7 +98,7 @@ const gltfLoader = new GLTFLoader(manager);
 async function loadMissionLog() {
     console.log("📂 [FETCH] Accediendo a Telemetría de Misión...");
     try {
-        const res = await fetch('sistema_solar_data.json?v=' + Date.now());
+        const res = await fetch('data/sistema_solar_data.json?v=' + Date.now());
         if (!res.ok) throw new Error(`Status: ${res.status}`);
 
         const data = await res.json();
@@ -296,7 +297,7 @@ function initSyncEngine() {
 function updateVisualAssets(title) {
     elements.tituloCap.innerText = title;
     const imgFile = imagesMap[title] || "solar_system.gif";
-    elements.gifPlaneta.src = `Image/${imgFile}`;
+    elements.gifPlaneta.src = `images/${imgFile}`;
     
     // Iniciar el Salto Espacial (Warp) si estamos en WebXR
     if(renderer && renderer.xr.isPresenting) {

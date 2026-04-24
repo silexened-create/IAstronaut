@@ -12,7 +12,8 @@ const config = {
     frameRate: 30
 };
 
-const BASE_URL = "https://iastronaut.onrender.com";
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
 
 const elements = {
     video: document.getElementById('webcam'),
