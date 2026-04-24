@@ -10,8 +10,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="shared.css">
-  <link rel="stylesheet" href="astro.css" />
+  <link rel="stylesheet" href="css/shared.css">
+  <link rel="stylesheet" href="css/astro.css" />
 </head>
 
 <body>
@@ -53,9 +53,9 @@
     <header>
       <div class="header-content">
         <div class="logo-area">
-          <img id="Papel" src="Image/planeta.webp" alt="planeta" />
+          <img id="Papel" src="images/planeta.webp" alt="planeta" />
           <h1 id="main-title">ASTRONAUT <span class="accent">IA</span></h1>
-          <img id="Libro" src="Image/galaxia.webp" alt="galaxia" />
+          <img id="Libro" src="images/galaxia.webp" alt="galaxia" />
         </div>
         <nav>
           <ul>
@@ -70,12 +70,83 @@
 
     <main class="dashboard">
       <section class="dashboard-left">
-        <div class="decorative-asset">
-          <img id="Mano" src="Image/Satelite.png" alt="Satélite" />
-          <div class="asset-info">
-            <span class="label">ESTADO SATELITAL</span>
-            <span class="value">ENLACE ACTIVO</span>
+        <!-- ── PANEL ARTEMIS II: MISSION INTELLIGENCE ── -->
+        <div class="artemis-panel" id="artemis-panel">
+
+          <!-- Sync Badge -->
+          <div class="sync-badge" id="sync-badge">
+            <span class="sync-dot"></span>
+            <span class="sync-text">Datos Sincronizados con <strong>@NASAArtemis</strong></span>
           </div>
+
+          <!-- Mission Status Card -->
+          <div class="mission-card" id="mission-card">
+            <div class="mission-card-header">
+              <span class="mission-tag">MISIÓN ACTIVA</span>
+              <span class="mission-name" id="mc-nombre">ARTEMIS II</span>
+            </div>
+            <div class="mission-card-body">
+              <div class="mission-stat">
+                <span class="stat-label">ESTADO</span>
+                <span class="stat-value" id="mc-estado">—</span>
+              </div>
+              <div class="mission-stat">
+                <span class="stat-label">LANZAMIENTO</span>
+                <span class="stat-value" id="mc-fecha">—</span>
+              </div>
+              <div class="mission-stat">
+                <span class="stat-label">DURACIÓN</span>
+                <span class="stat-value" id="mc-duracion">—</span>
+              </div>
+              <div class="mission-stat">
+                <span class="stat-label">DISTANCIA MÁX.</span>
+                <span class="stat-value small" id="mc-distancia">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual Hierarchy: SLS → Orion → Crew → Science -->
+          <div class="hierarchy-visual">
+            <div class="hierarchy-title">JERARQUÍA DE MISIÓN</div>
+            <div class="hierarchy-chain">
+              <div class="hierarchy-node">
+                <div class="node-icon">🚀</div>
+                <div class="node-label">SLS</div>
+                <div class="node-sub">Block 1</div>
+              </div>
+              <div class="hierarchy-connector"></div>
+              <div class="hierarchy-node">
+                <div class="node-icon">🛰️</div>
+                <div class="node-label">ORION</div>
+                <div class="node-sub">Integrity</div>
+              </div>
+              <div class="hierarchy-connector"></div>
+              <div class="hierarchy-node">
+                <div class="node-icon">👨‍🚀</div>
+                <div class="node-label">CREW</div>
+                <div class="node-sub">4 astronautas</div>
+              </div>
+              <div class="hierarchy-connector"></div>
+              <div class="hierarchy-node">
+                <div class="node-icon">🔬</div>
+                <div class="node-label">CIENCIA</div>
+                <div class="node-sub">Circunlunar</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Social Feed -->
+          <div class="twitter-feed" id="twitter-feed">
+            <div class="feed-header">
+              <span class="feed-icon">𝕏</span>
+              <span class="feed-title">SOCIAL INTELLIGENCE</span>
+              <span class="feed-live">LIVE</span>
+            </div>
+            <div class="feed-body" id="feed-body">
+              <div class="feed-loading">Cargando actualizaciones...</div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -93,6 +164,8 @@
 
           <div id="chat-history">
             <div class="system-message">INICIALIZANDO SISTEMA... BIENVENIDO ASTRONAUTA.</div>
+            <div class="system-message artemis-hint">💡 Pregúntame sobre la misión Artemis II — tripulación, cohete SLS,
+              nave Orion, etapas de vuelo y más.</div>
           </div>
 
           <div id="spinner" class="hidden"><em>🕗 PROCESANDO SEÑAL...</em></div>
@@ -105,7 +178,7 @@
         </div>
 
         <div class="decorative-asset bottom-asset">
-          <img id="Pluma" src="Image/Cohete.png" alt="Cohete" />
+          <img id="Pluma" src="images/Cohete.png" alt="Cohete" />
           <div class="asset-info">
             <span class="label">PROPULSIÓN</span>
             <span class="value">ESTABLE</span>
@@ -124,10 +197,96 @@
     }
   </script>
 
+  <script src="js/artemis_rag.js" type="module"></script>
   <script src="js/ui.js" type="module"></script>
   <script src="js/tts.js" type="module"></script>
   <script src="js/recognition.js" type="module"></script>
   <script src="js/main_astronauta.js" type="module"></script>
+
+  <!-- ── Artemis Panel Initializer ── -->
+  <script type="module">
+    import { obtenerTweetsArtemis, obtenerDatosMision, cargarDatosArtemis } from './js/artemis_rag.js';
+
+    function formatearNumero(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toString();
+    }
+
+    function renderizarPanelArtemis() {
+      // Mission Card
+      const datos = obtenerDatosMision();
+      if (datos) {
+        const m = datos.mision;
+        const estadoEl = document.getElementById('mc-estado');
+        const fechaEl = document.getElementById('mc-fecha');
+        const duracionEl = document.getElementById('mc-duracion');
+        const distanciaEl = document.getElementById('mc-distancia');
+
+        if (estadoEl) estadoEl.textContent = m.estado.toUpperCase();
+        if (fechaEl) fechaEl.textContent = m.fecha_lanzamiento;
+        if (duracionEl) duracionEl.textContent = m.duracion_estimada;
+        if (distanciaEl) distanciaEl.textContent = m.distancia_maxima;
+
+        // Actualizar estado visual
+        if (m.estado === 'finalizada') {
+          const tag = document.querySelector('.mission-tag');
+          if (tag) {
+            tag.textContent = 'MISIÓN COMPLETADA';
+            tag.classList.add('completed');
+          }
+        }
+      }
+
+      // Twitter Feed
+      const tweets = obtenerTweetsArtemis(4);
+      const feedBody = document.getElementById('feed-body');
+      if (feedBody && tweets.length > 0) {
+        feedBody.innerHTML = tweets.map(tweet => {
+          // Filter out emoji SVGs, keep only real images
+          const realImages = (tweet.imagenes || []).filter(img =>
+            img.includes('pbs.twimg.com') && !img.includes('emoji')
+          );
+          const imgHtml = realImages.length > 0
+            ? `<img class="tweet-img" src="${realImages[0]}" alt="Tweet imagen" loading="lazy" onerror="this.style.display='none'" />`
+            : '';
+
+          const fecha = new Date(tweet.fecha);
+          const fechaStr = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+          const textoCorto = tweet.texto.length > 120 ? tweet.texto.substring(0, 120) + '…' : tweet.texto;
+
+          return `
+            <div class="tweet-card">
+              ${imgHtml}
+              <p class="tweet-text">${textoCorto}</p>
+              <div class="tweet-meta">
+                <span class="tweet-date">${fechaStr}</span>
+                <span class="tweet-stats">❤️ ${formatearNumero(tweet.likes)} · 🔁 ${formatearNumero(tweet.retweets)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Actualizar timestamp del sync badge
+      if (datos && datos.ultimaActualizacion) {
+        const syncText = document.querySelector('.sync-text');
+        if (syncText) {
+          const ts = new Date(datos.ultimaActualizacion);
+          const timeStr = ts.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+          syncText.innerHTML = `Sincronizado con <strong>@NASAArtemis</strong> · ${timeStr}`;
+        }
+      }
+    }
+
+    // Escuchar cuando los datos se carguen
+    window.addEventListener('artemis-data-loaded', () => {
+      renderizarPanelArtemis();
+    });
+
+    // Intentar renderizar inmediatamente si ya cargaron
+    cargarDatosArtemis().then(() => renderizarPanelArtemis());
+  </script>
 
   <script type="module">
     import * as THREE from 'three';
@@ -135,7 +294,7 @@
 
     // Pre-carga de imágenes
     window.addEventListener("DOMContentLoaded", () => {
-      ["Image/Satelite.png", "Image/Cohete.png", "Image/planeta.webp", "Image/galaxia.webp"].forEach(src => {
+      ["images/Satelite.png", "images/Cohete.png", "images/planeta.webp", "images/galaxia.webp"].forEach(src => {
         const img = new Image();
         img.src = src;
       });
@@ -274,6 +433,7 @@
     // Ejecutar verificación al cargar
     checkAutoSkip();
   </script>
+  <script src="js/theme.js"></script>
 </body>
 
 </html>

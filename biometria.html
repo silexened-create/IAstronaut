@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="css/shared.css">
 
     <style>
         /* Ajustes específicos para el HUD de cámara */
@@ -28,12 +28,14 @@
             .dashboard {
                 grid-template-columns: 1fr 1fr;
             }
+
             .indice-navegacion {
                 grid-column: span 2;
                 flex-direction: row;
                 flex-wrap: wrap;
                 height: auto;
             }
+
             .indice-navegacion button {
                 flex: 1;
                 min-width: 150px;
@@ -45,19 +47,24 @@
                 grid-template-columns: 1fr;
                 padding: 10px;
             }
+
             .indice-navegacion {
                 grid-column: span 1;
                 order: 2;
             }
+
             .monitor {
                 order: 1;
             }
+
             .monitor-comunicaciones {
                 order: 3;
             }
+
             .scanner-container {
                 aspect-ratio: 1/1;
             }
+
             #overlay {
                 font-size: 5rem;
             }
@@ -273,6 +280,7 @@
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script type="module" src="js/biometrico.js"></script>
+    <script src="js/theme.js"></script>
 
 </body>
 

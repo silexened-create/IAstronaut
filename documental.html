@@ -10,27 +10,56 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="shared.css">
-    <link rel="stylesheet" href="doc_estilo.css">
+    <link rel="stylesheet" href="css/shared.css">
+    <link rel="stylesheet" href="css/doc_estilo.css">
     <style>
         #loading-screen {
-            position: fixed; 
-            top: 0; left: 0; width: 100vw; height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             background: rgba(5, 8, 20, 0.95);
-            display: flex; flex-direction: column; 
-            justify-content: center; align-items: center;
-            color: #00ffff; z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+            z-index: 9999;
             transition: opacity 0.5s ease;
         }
-        #loading-screen.hidden { display: none !important; }
+
+        #loading-screen.hidden {
+            display: none !important;
+        }
+
         .spinner {
-            width: 60px; height: 60px; 
-            border: 4px solid rgba(0, 255, 255, 0.1); border-top: 4px solid #00ffff; 
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 25px;
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(0, 255, 255, 0.1);
+            border-top: 4px solid #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 25px;
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #loading-text { font-size: 22px; font-family: 'Orbitron', sans-serif; letter-spacing: 3px; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loading-text {
+            font-size: 22px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
     </style>
 </head>
 
@@ -58,7 +87,7 @@
 
         <div class="monitor glass-panel">
             <h2 id="titulo-capitulo" class="pulse">SINCRONIZANDO DATOS...</h2>
-            <img id="planeta-gif" src="Image/solar_system.gif" alt="Planeta">
+            <img id="planeta-gif" src="images/solar_system.gif" alt="Planeta">
             <div class="lectura-espacial" id="contenedor-texto"></div>
         </div>
 
@@ -89,6 +118,7 @@
       }
     </script>
     <script type="module" src="js/documental.js"></script>
+    <script src="js/theme.js"></script>
 </body>
 
 
