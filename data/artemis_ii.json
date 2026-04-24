@@ -1,0 +1,182 @@
+{
+    "mision_principal": {
+        "nombre": "Artemis II",
+        "objetivo": "Primera misión tripulada del programa Artemis que llevará a cuatro astronautas alrededor de la Luna para probar los sistemas de la nave Orion.",
+        "estado": "finalizada",
+        "fecha_lanzamiento": "1 de abril de 2026",
+        "fecha_llegada": "6 de abril de 2026",
+        "fecha_regreso": "10 de abril de 2026",
+        "duracion_estimada": "10 días",
+        "tipo_orbita": "Trayectoria de retorno libre (circunlunar)",
+        "distancia_maxima": "Aproximadamente 10,300 km más allá de la cara oculta de la Luna"
+    },
+    "tripulacion_historica": {
+        "comandante": {
+            "nombre": "Reid Wiseman",
+            "agencia": "NASA",
+            "hitos": "Veterano de la Estación Espacial Internacional"
+        },
+        "piloto": {
+            "nombre": "Victor Glover",
+            "agencia": "NASA",
+            "hitos": "Primer hombre negro en participar en una misión lunar"
+        },
+        "especialista_1": {
+            "nombre": "Christina Hammock Koch",
+            "agencia": "NASA",
+            "hitos": "Primera mujer en una misión lunar; posee el récord del vuelo espacial individual más largo realizado por una mujer"
+        },
+        "especialista_2": {
+            "nombre": "Jeremy Hansen",
+            "agencia": "CSA (Canadá)",
+            "hitos": "Primer canadiense en viajar a la órbita lunar"
+        }
+    },
+    "tecnologia_y_hardware": {
+        "nave_orion": {
+            "fabricante": "Lockheed Martin (Cápsula) y Airbus (Módulo de Servicio Europeo)",
+            "capacidad": "Soporte vital para 4 astronautas en misiones de hasta 21 días",
+            "seguridad": "Sistema de aborto de lanzamiento (LAS) capaz de activarse en milisegundos"
+        },
+        "cohete_sls": {
+            "nombre_completo": "Space Launch System",
+            "configuracion": "Block 1",
+            "potencia": "8.8 millones de libras de empuje (15% más potente que el Saturno V)",
+            "componentes": "Etapa central con 4 motores RS-25 y dos propulsores de combustible sólido de 5 segmentos"
+        }
+    },
+    "etapas_de_vuelo": {
+        "lanzamiento": "Desde el Centro Espacial Kennedy, Florida (Complejo 39B)",
+        "orbita_terrestre": "Orbita terrestre alta (HEO) para verificar sistemas antes de partir a la Luna",
+        "inyeccion_trans_lunar": "Maniobra para salir de la gravedad terrestre",
+        "regreso": "Amarizaje en el Océano Pacífico asistido por 11 paracaídas"
+    },
+    "hoja_de_ruta_artemis": {
+        "artemis_I": "Completada con éxito (2022). Prueba no tripulada de Orion y SLS.",
+        "artemis_II": "Prueba tripulada orbital (Septiembre 2025).",
+        "artemis_III": "Alunizaje en el Polo Sur lunar (2026). Primera mujer y próxima persona de color en pisar la Luna.",
+        "artemis_IV": "Primera misión de ensamblaje de la estación Gateway en órbita lunar (2028).",
+        "objetivo_final": "Establecer una presencia humana sostenible en la Luna para prepararse para el primer viaje tripulado a Marte."
+    },
+    "preguntas_frecuentes_datos": {
+        "por_que_el_polo_sur": "Contiene depósitos de hielo de agua en cráteres permanentemente sombreados que pueden convertirse en aire, agua y combustible.",
+        "diferencia_con_apollo": "Artemis va para quedarse, utiliza tecnología moderna y es una colaboración internacional con socios como ESA, CSA y JAXA.",
+        "gateway": "Una futura estación espacial en órbita lunar que servirá como centro de comunicaciones, laboratorio científico y puerto de transferencia."
+    },
+    "actualizaciones_twitter": [
+        {
+            "id": "2042977685622734929",
+            "fecha": "2026-04-11T14:46:51.000Z",
+            "texto": "The astronauts. Their ride around the Moon. \n \nThe Artemis II astronauts pose for a group photo after viewing their Orion spacecraft — which they named Integrity — in the well deck of USS John P. Murtha following their splashdown.",
+            "imagenes": [
+                "https://pbs.twimg.com/media/HFodYITXQAAwV9y?format=jpg&name=small"
+            ],
+            "retweets": 70963,
+            "likes": 4998050
+        },
+        {
+            "id": "2043444930400461252",
+            "fecha": "2026-04-12T21:43:31.000Z",
+            "texto": "Thank you for following Artemis II. We’re just getting started. Welcome to the Artemis generation.",
+            "imagenes": [
+                "https://pbs.twimg.com/amplify_video_thumb/2043444763345694720/img/-X23a3VAYaFZeXOQ.jpg"
+            ],
+            "retweets": 26611,
+            "likes": 737015
+        },
+        {
+            "id": "2043428406407123203",
+            "fecha": "2026-04-12T20:37:51.000Z",
+            "texto": "Artemis II Moon mission complete!\n\n\n- Space Launch System rocket launched crew into space\n- Orion spacecraft kept astronauts safe\n- Flew around the Moon, observed its far side\n- New human spaceflight distance record\n- Crew safely returned to Earth\n- Inspired the WORLD",
+            "imagenes": [
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://abs-0.twimg.com/emoji/v2/svg/2705.svg",
+                "https://pbs.twimg.com/media/HFujO5fWYAACokM.jpg"
+            ],
+            "retweets": 78985,
+            "likes": 1987454
+        },
+        {
+            "id": "2043501827778302182",
+            "fecha": "2026-04-13T01:29:36.000Z",
+            "texto": "Launching on April 1st meant I got back in time to celebrate my 23rd wedding anniversary with Catherine today! Grateful to be able to share this zero g photo of my wedding ring in person over dinner tonight… as well as some cuddle time on Earth.",
+            "imagenes": [
+                "https://pbs.twimg.com/media/HFv6FEmb0AAp7fC?format=jpg&name=small"
+            ],
+            "retweets": 38423,
+            "likes": 587110
+        },
+        {
+            "id": "2042996204574020052",
+            "fecha": "2026-04-11T16:00:26.000Z",
+            "texto": ". II astronauts successfully splashed down in the Pacific Ocean yesterday evening. Check out more images of the recovery operations\n\n |  |  |",
+            "imagenes": [
+                "https://abs-0.twimg.com/emoji/v2/svg/1f449.svg",
+                "https://pbs.twimg.com/media/HFotB57akAA4KMV?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFotB50akAAGt3D?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFotB51akAUdqP2?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFotB56akAIf2uP?format=jpg&name=360x360"
+            ],
+            "retweets": 2092,
+            "likes": 72679
+        },
+        {
+            "id": "2042964898699972668",
+            "fecha": "2026-04-11T13:56:02.000Z",
+            "texto": "On the helicopter leaving the ship right now. This planet is impossibly beautiful from every altitude I’ve seen it…surface to 250,000 miles",
+            "imagenes": [
+                "https://pbs.twimg.com/media/HFoRUyCaoAAq0Ta?format=jpg&name=small"
+            ],
+            "retweets": 286747,
+            "likes": 3486201
+        },
+        {
+            "id": "2042821507399741853",
+            "fecha": "2026-04-11T04:26:15.000Z",
+            "texto": "The Artemis II astronauts were all smiles on the flight deck of USS John P. Murtha after they were extracted from their Orion spacecraft after splashdown.",
+            "imagenes": [
+                "https://pbs.twimg.com/media/HFmPVHsXwAAeRXM?format=jpg&name=small",
+                "https://pbs.twimg.com/media/HFmPVZQWkAAxiaZ?format=jpg&name=small"
+            ],
+            "retweets": 59873,
+            "likes": 1223271
+        },
+        {
+            "id": "2042808375348490745",
+            "fecha": "2026-04-11T03:34:04.000Z",
+            "texto": "HOME.\n \nThe Artemis II crew has arrived back on Earth, ending a nearly 10-day journey around the Moon. The trip took them farther into space than humans have ever gone before, and now they're safely home with us.",
+            "imagenes": [
+                "https://pbs.twimg.com/media/HFmDYuUXEAAa_Sh?format=jpg&name=small"
+            ],
+            "retweets": 201462,
+            "likes": 4933376
+        },
+        {
+            "id": "2042813453950148895",
+            "fecha": "2026-04-11T03:54:15.000Z",
+            "texto": "We can achieve great things when we work together.\n \nThe Artemis II recovery team includes specialists from the U.S. military alongside engineers and technicians from NASA and Lockheed Martin.",
+            "imagenes": [],
+            "retweets": 16472,
+            "likes": 330206
+        },
+        {
+            "id": "2042803553463374318",
+            "fecha": "2026-04-11T03:14:55.000Z",
+            "texto": "Welcome home Reid, Victor, Christina, and Jeremy!Check out pictures from the return of the  II! :",
+            "imagenes": [
+                "https://abs-0.twimg.com/emoji/v2/svg/1f4f7.svg",
+                "https://pbs.twimg.com/media/HFl-IXlXYAAmLq4?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFl-IXgW4AAosE6?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFl-IXmWcAAUew9?format=jpg&name=360x360",
+                "https://pbs.twimg.com/media/HFl-MSWW4AA13Ft?format=jpg&name=360x360"
+            ],
+            "retweets": 15157,
+            "likes": 766936
+        }
+    ],
+    "ultima_actualizacion_scraper": "2026-04-13T09:47:01.295124"
+}
