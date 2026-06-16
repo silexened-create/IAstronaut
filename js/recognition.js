@@ -4,7 +4,7 @@ import { buscarContextoArtemis, cargarDatosArtemis } from './artemis_rag.js';
 
 // ── Auto-detección: Local vs Producción (Render) ──
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
+const BASE_URL = isLocal ? "http://localhost:8000" : "https://iastronaut.onrender.com";
 console.log(`🌐 [ENV] ${isLocal ? 'LOCAL' : 'RENDER'} → ${BASE_URL}`);
 
 let modo = "idle";
@@ -117,8 +117,18 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       content: m.texto
     }));
 
-    console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
-    const r = await fetch(`${BASE_URL}/proxy.php`, {
+    console.log("🛰️ Conectando con IAstronaut Command Center...");
+    console.log("➡️ [PASO 1] URL de destino:", `${BASE_URL}/proxy.php`);
+
+    const payloadEnvio = {
+      message: texto,
+      history: history,
+      image: !!imagenB64, // Solo logeamos booleanos para no saturar consola
+      artemis_context: !!artemisContext
+    };
+    console.log("➡️ [PASO 2] Payload a enviar:", payloadEnvio);
+
+    const r = await fetch(`${BASE_URL}/api/proxy.php`, {
       method: "POST",
       mode: 'cors',
       headers: { "Content-Type": "application/json" },
@@ -130,7 +140,20 @@ export async function procesarEntrada(texto, imagenB64 = null) {
       })
     });
 
-    const data = await r.json();
+    console.log("➡️ [PASO 3] Status HTTP:", r.status, r.statusText);
+
+    const textoRespuesta = await r.text();
+    console.log("➡️ [PASO 4] Respuesta cruda (Raw Text):", textoRespuesta);
+
+    let data;
+    try {
+      data = JSON.parse(textoRespuesta);
+      console.log("➡️ [PASO 5] JSON Parseado exitosamente:", data);
+    } catch (parseError) {
+      console.error("❌ [ERROR] Falló al parsear el JSON:", parseError);
+      throw new Error("Respuesta inválida del servidor");
+    }
+
     const respuesta = data.reply || "Sin señal.";
     addMsg('Astronauta', respuesta);
 
@@ -138,7 +161,9 @@ export async function procesarEntrada(texto, imagenB64 = null) {
     window.conversationHistory.push({ who: 'Tú', texto: texto }, { who: 'Astronauta', texto: respuesta });
 
     await speak(respuesta);
+    console.log("✅ [PASO 6] Respuesta reproducida y mostrada.");
   } catch (err) {
+    console.error("❌ [EXCEPCIÓN EN FETCH]:", err);
     addMsg("Error", "Fallo de enlace.");
   } finally {
     hideSpinner();

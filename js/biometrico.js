@@ -13,7 +13,7 @@ const config = {
 };
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
+const BASE_URL = isLocal ? "http://localhost:8000" : "https://iastronaut.onrender.com";
 
 const elements = {
     video: document.getElementById('webcam'),
@@ -185,7 +185,7 @@ async function captureFrame() {
 async function transmitToCommand(imageData) {
     try {
         console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
-        const response = await fetch(`${BASE_URL}/vision.php`, {
+        const response = await fetch(`${BASE_URL}/api/vision.php`, {
             method: 'POST',
             mode: 'cors', // <--- AÑADE ESTO
             headers: {

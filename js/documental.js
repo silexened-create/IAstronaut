@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const BASE_URL = isLocal ? "http://localhost:8091" : "https://iastronaut.onrender.com";
+const BASE_URL = isLocal ? "http://localhost:8000" : "https://iastronaut.onrender.com";
 
 console.log("🚀 [SISTEMA] Inicializando Motor de Bitácora de Misión...");
 
@@ -82,11 +82,11 @@ const modelMap = {
 };
 
 const manager = new THREE.LoadingManager();
-manager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+manager.onStart = function (url, itemsLoaded, itemsTotal) {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen) loadingScreen.classList.remove('hidden');
 };
-manager.onLoad = function ( ) {
+manager.onLoad = function () {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen) loadingScreen.classList.add('hidden');
 };
@@ -220,9 +220,9 @@ function loadChapter(index, autoPlay = true) {
 
     if (autoPlay) {
         elements.audio.play()
-            .then(() => { 
+            .then(() => {
                 if (renderer && renderer.xr.isPresenting && globalAudio && !globalAudio.isPlaying) {
-                    globalAudio.play(); 
+                    globalAudio.play();
                 }
             })
             .catch(e => console.log("Auto-play prevenido:", e));
@@ -298,9 +298,9 @@ function updateVisualAssets(title) {
     elements.tituloCap.innerText = title;
     const imgFile = imagesMap[title] || "solar_system.gif";
     elements.gifPlaneta.src = `images/${imgFile}`;
-    
+
     // Iniciar el Salto Espacial (Warp) si estamos en WebXR
-    if(renderer && renderer.xr.isPresenting) {
+    if (renderer && renderer.xr.isPresenting) {
         if (!isWarping && title !== currentLoadedTitle) {
             isWarping = true;
             warpProgress = 0;
@@ -343,7 +343,7 @@ async function processQuestion() {
 
     try {
         console.log("🛰️ Conectando con IAstronaut Command Center en Render...");
-        const response = await fetch(`${BASE_URL}/proxy.php`, {
+        const response = await fetch(`${BASE_URL}/api/proxy.php`, {
             method: 'POST',
             mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
@@ -391,13 +391,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function initVR() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.6, 0); 
+    camera.position.set(0, 1.6, 0);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-    
+
     renderer.domElement.style.position = 'fixed';
     renderer.domElement.style.top = '0';
     renderer.domElement.style.left = '0';
@@ -420,7 +420,7 @@ function initVR() {
     scene.add(dirLight);
 
     planetGroup = new THREE.Group();
-    planetGroup.position.set(0, 1.6, -3); 
+    planetGroup.position.set(0, 1.6, -3);
     scene.add(planetGroup);
 
     // Audio Espacial WebXR
@@ -464,19 +464,19 @@ function initVR() {
 function createStars() {
     starVerticesBase = [];
     const vertices = [];
-    for ( let i = 0; i < 3000; i ++ ) {
-        const x = THREE.MathUtils.randFloatSpread( 200 );
-        const y = THREE.MathUtils.randFloatSpread( 200 );
-        const z = THREE.MathUtils.randFloatSpread( 200 );
-        if(Math.sqrt(x*x + y*y + z*z) < 10) continue;
-        starVerticesBase.push( x, y, z );
-        vertices.push( x, y, z );
+    for (let i = 0; i < 3000; i++) {
+        const x = THREE.MathUtils.randFloatSpread(200);
+        const y = THREE.MathUtils.randFloatSpread(200);
+        const z = THREE.MathUtils.randFloatSpread(200);
+        if (Math.sqrt(x * x + y * y + z * z) < 10) continue;
+        starVerticesBase.push(x, y, z);
+        vertices.push(x, y, z);
     }
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-    const material = new THREE.PointsMaterial( { color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8 } );
-    starField = new THREE.Points( geometry, material );
-    scene.add( starField );
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8 });
+    starField = new THREE.Points(geometry, material);
+    scene.add(starField);
 }
 
 /**
@@ -509,7 +509,7 @@ function normalizeModel(model, title) {
             shouldNormalize = false;
             model.scale.set(0.1, 0.1, 0.1);
             customPosition.set(0, 0, -8);
-            
+
             // Añadir luz específica para el sol
             if (!sunPointLight) {
                 sunPointLight = new THREE.PointLight(0xffffee, 5, 100);
@@ -611,12 +611,12 @@ function loadPlanetModel(title) {
             labelMesh.material.dispose();
             labelMesh = null;
         }
-        return; 
+        return;
     }
 
     const loadingText = document.getElementById('loading-text');
     if (loadingText) loadingText.innerText = `Sincronizando con ${title}...`;
-    
+
     gltfLoader.load(`models/${modelFile}`, (gltf) => {
         currentPlanetModel = gltf.scene;
 
@@ -653,7 +653,7 @@ function cleanMaterial(material) {
 }
 
 function updatePlanetLabel(title) {
-    if(labelMesh) {
+    if (labelMesh) {
         planetGroup.remove(labelMesh);
         labelMesh.geometry.dispose();
         labelMesh.material.map.dispose();
@@ -664,10 +664,10 @@ function updatePlanetLabel(title) {
     canvas.width = 512;
     canvas.height = 128;
     const ctx = canvas.getContext('2d');
-    
+
     ctx.fillStyle = 'rgba(0,0,0,0)';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     ctx.font = 'bold 60px Orbitron, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -679,9 +679,9 @@ function updatePlanetLabel(title) {
     const texture = new THREE.CanvasTexture(canvas);
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
     const geometry = new THREE.PlaneGeometry(1.5, 0.375);
-    
+
     labelMesh = new THREE.Mesh(geometry, material);
-    labelMesh.position.set(0, -1.2, 0); 
+    labelMesh.position.set(0, -1.2, 0);
     planetGroup.add(labelMesh);
 }
 
@@ -690,18 +690,18 @@ function createVRHUD() {
     canvas.width = 512;
     canvas.height = 280;
     const ctx = canvas.getContext('2d');
-    
+
     ctx.fillStyle = 'rgba(8, 12, 32, 0.85)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#00ffff';
     ctx.lineWidth = 4;
-    ctx.strokeRect(4, 4, canvas.width-8, canvas.height-8);
-    
+    ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+
     ctx.fillStyle = '#00ffff';
     ctx.font = 'bold 28px Orbitron';
     ctx.textAlign = 'center';
-    ctx.fillText('INSTRUCCIONES VR:', canvas.width/2, 50);
-    
+    ctx.fillText('INSTRUCCIONES VR:', canvas.width / 2, 50);
+
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'left';
@@ -722,10 +722,10 @@ function createVRHUD() {
 }
 
 function setupControllers() {
-    controller1 = renderer.xr.getController(0); 
+    controller1 = renderer.xr.getController(0);
     scene.add(controller1);
-    
-    controller2 = renderer.xr.getController(1); 
+
+    controller2 = renderer.xr.getController(1);
     scene.add(controller2);
 }
 
@@ -743,8 +743,8 @@ function handleGamepads() {
         if (!source.gamepad) continue;
         const bt = source.gamepad.buttons;
         const ax = source.gamepad.axes;
-        
-        if (source.handedness === 'right') { 
+
+        if (source.handedness === 'right') {
             const btnA = bt[4] && bt[4].pressed;
             const btnB = bt[5] && bt[5].pressed;
 
@@ -760,7 +760,7 @@ function handleGamepads() {
                     loadChapter(currentChapterIndex - 1);
                 }
             }
-            
+
             // Escalar "Introducción" con el Joystick Y (Index 3)
             if (currentLoadedTitle === "Introducción" && planetGroup) {
                 if (Math.abs(ax[3]) > 0.1) {
@@ -770,12 +770,12 @@ function handleGamepads() {
                     planetGroup.scale.set(newScale, newScale, newScale);
                 }
             }
-            
+
             prevButtonState.A = btnA;
             prevButtonState.B = btnB;
         }
 
-        if (source.handedness === 'left') { 
+        if (source.handedness === 'left') {
             const btnX = bt[4] && bt[4].pressed;
             const btnY = bt[5] && bt[5].pressed;
 
@@ -805,28 +805,28 @@ function updateWarpEffect() {
         const positions = starField.geometry.attributes.position.array;
         for (let i = 0; i < 3000; i++) {
             // Estirar z hacia la cámara (hacerlo negativo respecto al ojo)
-            positions[i*3 + 2] = starVerticesBase[i*3 + 2] + (warpProgress * 50 * Math.sign(starVerticesBase[i*3 + 2]));
+            positions[i * 3 + 2] = starVerticesBase[i * 3 + 2] + (warpProgress * 50 * Math.sign(starVerticesBase[i * 3 + 2]));
         }
         starField.geometry.attributes.position.needsUpdate = true;
-        
+
         // Fase 1b: Opacar planeta actual y HUD durante salto
         if (planetGroup) planetGroup.visible = false;
         if (vrHUD) vrHUD.visible = false;
-        
+
     } else if (warpProgress >= 1.0 && warpProgress < 1.02) {
         // Cargar el modelo exactamente a la mitad del salto
         const title = missionChapters[pendingChapterIndex].titulo;
         loadPlanetModel(title);
-        
+
     } else if (warpProgress >= 1.02 && warpProgress < 2.0) {
         // Fase 2: Desacelerar estrellas
         const falloff = 2.0 - warpProgress;
         const positions = starField.geometry.attributes.position.array;
         for (let i = 0; i < 3000; i++) {
-            positions[i*3 + 2] = starVerticesBase[i*3 + 2] + (falloff * 50 * Math.sign(starVerticesBase[i*3 + 2]));
+            positions[i * 3 + 2] = starVerticesBase[i * 3 + 2] + (falloff * 50 * Math.sign(starVerticesBase[i * 3 + 2]));
         }
         starField.geometry.attributes.position.needsUpdate = true;
-        
+
     } else {
         // Fin de warp
         isWarping = false;
@@ -834,17 +834,17 @@ function updateWarpEffect() {
             planetGroup.visible = true;
             // Reset scale si no estamos en Introducción
             if (currentLoadedTitle !== "Introducción") {
-                 planetGroup.scale.set(1, 1, 1);
+                planetGroup.scale.set(1, 1, 1);
             }
         }
         if (vrHUD) vrHUD.visible = instructionsVisible;
-        
+
         // Restaurar array original de estrellas
         const positions = starField.geometry.attributes.position.array;
         for (let i = 0; i < 3000; i++) {
-            positions[i*3 + 0] = starVerticesBase[i*3 + 0];
-            positions[i*3 + 1] = starVerticesBase[i*3 + 1];
-            positions[i*3 + 2] = starVerticesBase[i*3 + 2];
+            positions[i * 3 + 0] = starVerticesBase[i * 3 + 0];
+            positions[i * 3 + 1] = starVerticesBase[i * 3 + 1];
+            positions[i * 3 + 2] = starVerticesBase[i * 3 + 2];
         }
         starField.geometry.attributes.position.needsUpdate = true;
     }
@@ -855,11 +855,11 @@ function renderVR() {
         handleGamepads();
         updateWarpEffect();
     }
-    
+
     if (currentPlanetModel && !isWarping) {
         // Rotación global más rápida sobre su propio eje Y
         currentPlanetModel.rotation.y += 0.005;
-        
+
         // Órbita / Balanceo si no es el Sistema Solar completo
         if (currentLoadedTitle !== "Introducción" && currentLoadedTitle !== "Cinturón de asteroides" && currentLoadedTitle !== "Cinturón de Kuiper" && currentLoadedTitle !== "El Sol") {
             const temp = clock.getElapsedTime() * 0.2;
@@ -867,7 +867,7 @@ function renderVR() {
             currentPlanetModel.position.z = -3 + Math.sin(temp) * 0.5;
         }
     }
-    
+
     if (labelMesh) {
         animTime += 0.02;
         labelMesh.position.y = -1.2 + Math.sin(animTime) * 0.05;
