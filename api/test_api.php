@@ -22,7 +22,7 @@ echo "🔑 API Key detectada (primeros caracteres): " . substr($apiKey, 0, 10) .
 // 2. Configurar la petición a un modelo que SABEMOS que es gratuito y estable
 // Hemos cambiado a Gemini 2.0 Flash Lite que es el más confiable hoy en OpenRouter
 $url = "https://openrouter.ai/api/v1/chat/completions";
-$modelo = "arcee-ai/trinity-large-preview:free";
+$modelo = "google/gemma-4-26b-a4b-it:free";
 
 $payload = json_encode([
     "model" => $modelo,

@@ -4,15 +4,29 @@ header("Access-Control-Allow-Origin: *");
 // 2. Permitir métodos POST y JSON
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Content-Type: application/json");
 
 // 3. Manejar la petición "preflight" (OPTIONS) que hace el navegador
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
 /* ============================================================
     1. CONFIGURACIÓN DE SEGURIDAD Y CARGA DE VARIABLES
    ============================================================ */
+// Cargar .env localmente si existe
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        list($name, $value) = explode('=', $line, 2) + [NULL, NULL];
+        if ($name !== null && $value !== null) {
+            putenv(trim($name) . '=' . trim($value));
+        }
+    }
+}
+
 $apiKey = getenv("OPENROUTER_API_KEY");
 
 if (!$apiKey) {
@@ -24,6 +38,7 @@ if (!$apiKey) {
    PROCESAR ENTRADA
    ============================================================ */
 $input = json_decode(file_get_contents("php://input"), true);
+if (!is_array($input)) $input = [];
 $mensaje_usuario = $input["message"] ?? "";
 $historial = $input["history"] ?? [];
 $imagen_base64 = $input["image"] ?? null;
@@ -31,7 +46,7 @@ $imagen_base64 = $input["image"] ?? null;
 /**
  * LÓGICA DE SELECCIÓN DE MODELO
  */
-$modelo_texto = "google/gemma-4-26b-a4b-it:free";
+$modelo_texto = "google/gemma-4-31b-it:free";
 $modelo_vision = "google/gemini-2.0-flash-exp:free"; 
 
 $modelo_activo = ($imagen_base64) ? $modelo_vision : $modelo_texto;
@@ -66,8 +81,8 @@ Detalles de la tripulación:
 - Especialista: Jeremy Hansen (primer canadiense).
 Misión: Prueba de sistemas de soporte vital en órbita lunar antes del aterrizaje de Artemis III. Consideras esta misión un hito de la cooperación internacional y el ODS 9 (innovación tecnológica).";
 
-// Inicializar arreglo de mensajes con el prompt del sistema
-$mensajes = [["role" => "system", "content" => $system_prompt]];
+$mensajes = [];
+$mensajes[] = ["role" => "system", "content" => $system_prompt];
 
 // Cargar historial previo
 foreach ($historial as $turno) {
@@ -79,7 +94,7 @@ foreach ($historial as $turno) {
 // Construir el mensaje actual del usuario (Texto o Multimodal)
 if ($imagen_base64) {
     $contenido_usuario = [
-        ["type" => "text", "text" => $mensaje_usuario ?: "Analiza mi postura de entrenamiento."],
+        ["type" => "text", "text" => $mensaje_usuario],
         ["type" => "image_url", "image_url" => ["url" => "data:image/jpeg;base64," . $imagen_base64]]
     ];
 } else {
@@ -105,7 +120,7 @@ curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     "Authorization: Bearer " . trim($apiKey),
     "Content-Type: application/json",
-    "HTTP-Referer: https://iastronaut.vercel.app", // Referer de producción
+    "Referer: https://iastronaut.vercel.app", // Referer de producción
     "X-Title: IAstronaut Mission Control"
 ]);
 curl_setopt($ch, CURLOPT_TIMEOUT, 45);
