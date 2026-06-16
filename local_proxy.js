@@ -38,7 +38,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const PORT = 8091;
+const PORT = 8000;
 
 // ── System Prompt (idéntico a proxy.php) ──
 const SYSTEM_PROMPT = `Actúa como IAstronaut, un astronauta humano del futuro con una personalidad calmada, 
@@ -107,7 +107,7 @@ async function handleChat(input, res) {
 
   // Lista de modelos con fallback automático
   const MODELOS_TEXTO = [
-    'google/gemma-4-26b-a4b-it:free',
+    'baidu/cobuddy:free',
     'google/gemma-3-12b-it:free',
     'google/gemma-3n-e2b-it:free',
     'google/gemma-3n-e4b-it:free'
