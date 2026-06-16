@@ -53,9 +53,9 @@
     <header>
       <div class="header-content">
         <div class="logo-area">
-          <img id="Papel" src="images/planeta.webp" alt="planeta" />
+          <img id="Papel" src="Images/planeta.webp" alt="planeta" />
           <h1 id="main-title">ASTRONAUT <span class="accent">IA</span></h1>
-          <img id="Libro" src="images/galaxia.webp" alt="galaxia" />
+          <img id="Libro" src="Images/galaxia.webp" alt="galaxia" />
         </div>
         <nav>
           <ul>
@@ -178,7 +178,7 @@
         </div>
 
         <div class="decorative-asset bottom-asset">
-          <img id="Pluma" src="images/Cohete.png" alt="Cohete" />
+          <img id="Pluma" src="Images/Cohete.png" alt="Cohete" />
           <div class="asset-info">
             <span class="label">PROPULSIÓN</span>
             <span class="value">ESTABLE</span>
@@ -243,7 +243,7 @@
       const feedBody = document.getElementById('feed-body');
       if (feedBody && tweets.length > 0) {
         feedBody.innerHTML = tweets.map(tweet => {
-          // Filter out emoji SVGs, keep only real images
+          // Filter out emoji SVGs, keep only real Images
           const realImages = (tweet.imagenes || []).filter(img =>
             img.includes('pbs.twimg.com') && !img.includes('emoji')
           );
@@ -294,7 +294,7 @@
 
     // Pre-carga de imágenes
     window.addEventListener("DOMContentLoaded", () => {
-      ["images/Satelite.png", "images/Cohete.png", "images/planeta.webp", "images/galaxia.webp"].forEach(src => {
+      ["Images/Satelite.png", "Images/Cohete.png", "Images/planeta.webp", "Images/galaxia.webp"].forEach(src => {
         const img = new Image();
         img.src = src;
       });
